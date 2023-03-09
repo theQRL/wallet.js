@@ -1,4 +1,4 @@
-import WordList from "../qrl";
+import {WordList} from "../qrl/wordlist.js";
 
 export function SeedBinToMnemonic(input) {
     return binToMnemonic(input);

@@ -1,33 +1,39 @@
 import pkg from 'randombytes';  // eslint-disable-line import/no-extraneous-dependencies
+import { SHAKE } from 'sha3'; // eslint-disable-line import/no-extraneous-dependencies
 import { cryptoSign, cryptoSignKeypair, cryptoSignOpen, cryptoSignVerify, cryptoSignSignature, CryptoPublicKeyBytes, CryptoSecretKeyBytes, SeedBytes, CryptoBytes } from '@theqrl/dilithium5';
 import { SeedBinToMnemonic } from './utils/mnemonic.js';
-const {randomBytes} = pkg;
+const randomBytes = pkg;
 
 export function New() {
     var pk = new Uint8Array(CryptoPublicKeyBytes);
     var sk = new Uint8Array(CryptoSecretKeyBytes);
 
-    var seed = new Uint8Array(randomBytes(SeedBytes))
+    var seed = randomBytes(SeedBytes)
     seed = cryptoSignKeypair(seed, pk, sk);
-    
-    return {
+    let dilithium = {
         pk: pk,
         sk: sk,
         seed: seed,
         randomizedSigning: false,
-        GetPK: GetPK(),
-        GetSK: GetSK(),
-        GetSeed: GetSeed(),
-        GetHexSeed: GetHexSeed(),
-        GetMnemonic: GetMnemonic(),
-        Seal: Seal(message),
-        Sign: Sign(message),
-        GetAddress: GetAddress(),
-        Open: Open(signatureMessage, pk),
-        Verify: Verify(message, signature, pk),
-        ExtractMessage: ExtractMessage(signatureMessage),
-        ExtractSignature: ExtractSignature(signatureMessage)
+        GetPK: new Function,
+        GetSK: new Function,
+        GetSeed: new Function,
+        GetAddress: new Function,
+        GetMnemonic: new Function,
+        GetHexSeed: new Function,
+        Seal: new Function,
+        Sign: new Function,
     }
+    dilithium.GetPK = GetPK.bind(dilithium)
+    dilithium.GetSK = GetSK.bind(dilithium)
+    dilithium.GetSeed = GetSeed.bind(dilithium)
+    dilithium.GetHexSeed = GetHexSeed.bind(dilithium)
+    dilithium.GetMnemonic = GetMnemonic.bind(dilithium)
+    dilithium.Seal = Seal.bind(dilithium)
+    dilithium.Sign = Sign.bind(dilithium)
+    dilithium.GetAddress = GetAddress.bind(dilithium)
+    
+    return dilithium
 }
 
 export function NewDilithiumFromSeed(seed) {
@@ -35,24 +41,31 @@ export function NewDilithiumFromSeed(seed) {
     var sk = new Uint8Array(CryptoSecretKeyBytes);
 
     seed = cryptoSignKeypair(seed, pk, sk);
-    return {
+    let dilithium = {
         pk: pk,
         sk: sk,
         seed: seed,
         randomizedSigning: false,
-        GetPK: GetPK(),
-        GetSK: GetSK(),
-        GetSeed: GetSeed(),
-        GetHexSeed: GetHexSeed(),
-        GetMnemonic: GetMnemonic(),
-        Seal: Seal(message),
-        Sign: Sign(message),
-        GetAddress: GetAddress(),
-        Open: Open(signatureMessage, pk),
-        Verify: Verify(message, signature, pk),
-        ExtractMessage: ExtractMessage(signatureMessage),
-        ExtractSignature: ExtractSignature(signatureMessage)
+        GetPK: new Function,
+        GetSK: new Function,
+        GetSeed: new Function,
+        GetAddress: new Function,
+        GetMnemonic: new Function,
+        GetHexSeed: new Function,
+        Seal: new Function,
+        Sign: new Function,
+
     }
+    dilithium.GetPK = GetPK.bind(dilithium)
+    dilithium.GetSK = GetSK.bind(dilithium)
+    dilithium.GetSeed = GetSeed.bind(dilithium)
+    dilithium.GetHexSeed = GetHexSeed.bind(dilithium)
+    dilithium.GetMnemonic = GetMnemonic.bind(dilithium)
+    dilithium.Seal = Seal.bind(dilithium)
+    dilithium.Sign = Sign.bind(dilithium)
+    dilithium.GetAddress = GetAddress.bind(dilithium)
+    
+    return dilithium
 }
 
 function GetPK() {
@@ -68,7 +81,7 @@ function GetSeed() {
 }
 
 function GetHexSeed() {
-    return '0x'+this.seed.toString(16)
+    return '0x'+this.seed.toString('hex')
 }
 
 function  GetMnemonic() {
@@ -83,7 +96,7 @@ function Seal(message) {
 // Sign the message, and return a detached signature. Detached signatures are
 // variable sized, but never larger than SIG_SIZE_PACKED.
 function Sign(message) {
-    let sm = cryptoSign(message)
+    let sm = cryptoSign(message, this.sk)
     var signature = new Uint8Array(CryptoBytes)
     signature = sm.slice(0, CryptoBytes)
     return signature
@@ -95,25 +108,25 @@ function GetAddress() {
 
 // Open the sealed message m. Returns the original message sealed with signature.
 // In case the signature is invalid, nil is returned.
-function Open(signatureMessage, pk){
+export function Open(signatureMessage, pk){
 	return cryptoSignOpen(signatureMessage, pk)
 }
 
-function Verify(message, signature, pk) {
+export function Verify(message, signature, pk) {
 	return cryptoSignVerify(signature, message, pk)
 }
 
 // ExtractMessage extracts message from Signature attached with message.
-function ExtractMessage(signatureMessage) {
+export function ExtractMessage(signatureMessage) {
 	return signatureMessage.slice(CryptoBytes, signatureMessage.length - 1)
 }
 
 // ExtractSignature extracts signature from Signature attached with message.
-function ExtractSignature(signatureMessage) {
+export function ExtractSignature(signatureMessage) {
 	return signatureMessage.slice(0, CryptoBytes)
 }
 
-function GetDilithiumDescriptor() {
+export function GetDilithiumDescriptor() {
 	/*
 		In case of Dilithium address, it doesn't have any choice of hashFunction,
 		height, addrFormatType. Thus keeping all those values to 0 and assigning
@@ -122,22 +135,23 @@ function GetDilithiumDescriptor() {
 	return 3 << 4
 }
 
-function GetDilithiumAddressFromPK(pk) {
+export function GetDilithiumAddressFromPK(pk) {
     let addressSize = 20
 	var address = new Uint8Array(addressSize)
 	let descBytes = GetDilithiumDescriptor()
 	address[0] = descBytes
 
 	var hashedKey = new SHAKE(256)
-    hashedKey.update(pk)
-    hashedKey.digest({ buffer: Buffer.alloc(32), format: 'hex' })
-    address = address.slice(0,1)
-    address.push(...hashedKey.slice(hashedKey.length-addressSize+1))
-
+    hashedKey.update(Buffer.from(pk))
+    let hashedKeyDigest = hashedKey.digest({ buffer: Buffer.alloc(32), format: 'hex' })
+    hashedKeyDigest = hashedKeyDigest.slice(hashedKey.length-addressSize+1)
+    for(let i = 0; i<hashedKeyDigest.length; i++){
+        address.fill(hashedKeyDigest[i], i+1, i+2)
+    }
 	return address
 }
 
-function IsValidDilithiumAddress(address) {
+export function IsValidDilithiumAddress(address) {
 	let d = GetDilithiumDescriptor()
 	if (address[0] != d) {
 		return false

@@ -8,6 +8,7 @@ function binToMnemonic(input) {
     if (String(input).length % 3 != 0) {
         console.error("byte count needs to be a multiple of 3");
     }
+    let mnemonic = ''
     var separator = "";
     let buf = Buffer.alloc(input.length * 4);
     for (let nibble = 0; nibble < input.length * 2; nibble += 3) {
@@ -23,8 +24,9 @@ function binToMnemonic(input) {
         } else {
             idx = ((b1 & 0x0F) << 8) + b2;
         }
-        buf.fill(separator, WordList[idx]);
+        mnemonic += separator + WordList[idx];
         separator = " ";
     }
-    return buf.toString()
+    // return buf.toString()
+    return mnemonic;
 }

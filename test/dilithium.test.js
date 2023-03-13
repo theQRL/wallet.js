@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import DilithiumWallet from '../src/dilithium.js';
+import { CryptoPublicKeyBytes, CryptoSecretKeyBytes, CryptoBytes } from '@theqrl/dilithium5'
 
 const HASHEDSEED = '8078f74eb51029b5b96cfbe2bd0ab8433252bf4c6c8fbad92789add5e3cca216';
 const HEXSEED = 'f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28'
@@ -20,13 +21,13 @@ describe('New', () => {
     it('should return public key from GetPK method', () => {
         let dilithium = DilithiumWallet.New()
         let pk = dilithium.GetPK()
-        expect(Buffer.from(pk, 'binary').toString('hex').length).to.equal(PK.length)
+        expect(pk.length).to.equal(CryptoPublicKeyBytes)
     });
 
     it('should return secret key from GetSK method', () => {
         let dilithium = DilithiumWallet.New()
         let sk = dilithium.GetSK()
-        expect(Buffer.from(sk, 'binary').toString('hex').length).to.equal(SK.length)
+        expect(sk.length).to.equal(CryptoSecretKeyBytes)
     });
 
     it('should return seed from GetSeed method', () => {
@@ -57,14 +58,15 @@ describe('New', () => {
 
     it('should be able to sign message with Seal method', () => {
         let dilithium = DilithiumWallet.New()
-        let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
-        expect(signature.length).to.equal(4602)
+        let msg = Buffer.from(MESSAGE, 'hex')
+        let signatureMessage = dilithium.Seal(msg)
+        expect(signatureMessage.length).to.equal(CryptoBytes + msg.length)
     })
 
     it('should be able to sign message with Sign method', () => {
         let dilithium = DilithiumWallet.New()
         let signature = dilithium.Sign(Buffer.from(MESSAGE, 'hex'))
-        expect(signature.length).to.equal(4595)
+        expect(signature.length).to.equal(CryptoBytes)
     })
 })
 
@@ -116,15 +118,16 @@ describe('NewDilithiumFromSeed', () => {
 
     it('should be able to sign message with Seal method', () => {
         let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HEXSEED, 'hex'))
-        let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
-        expect(signature.length).to.equal(4602)
-        expect(Buffer.from(signature, 'binary').toString('hex')).to.equal(SIGNATURE + MESSAGE);
+        let msg = Buffer.from(MESSAGE, 'hex')
+        let signatureMessage = dilithium.Seal(msg)
+        expect(signatureMessage.length).to.equal(CryptoBytes + msg.length)
+        expect(Buffer.from(signatureMessage, 'binary').toString('hex')).to.equal(SIGNATURE + MESSAGE);
     });
 
     it('should be able to sign message with Sign method', () => {
         let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HEXSEED, 'hex'))
         let signature = dilithium.Sign(Buffer.from(MESSAGE, 'hex'))
-        expect(signature.length).to.equal(4595)
+        expect(signature.length).to.equal(CryptoBytes)
         expect(Buffer.from(signature, 'binary').toString('hex')).to.equal(SIGNATURE);
     });
 

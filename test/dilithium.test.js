@@ -155,8 +155,8 @@ describe('Verify', () => {
 describe('ExtractMessage', () => {
     it('should extract message from signature', () => {
         let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HEXSEED, 'hex'))
-        let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
-        let messageBuf = DilithiumWallet.ExtractMessage(signature)
+        let signatureMessage = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
+        let messageBuf = DilithiumWallet.ExtractMessage(signatureMessage)
         expect(Buffer.from(messageBuf, 'binary').toString('hex')).to.equal(MESSAGE.toString(16))
     })
 })
@@ -164,8 +164,8 @@ describe('ExtractMessage', () => {
 describe('ExtractSignature', () => {
     it('should extract signature from Signature attached with message', () => {
         let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HEXSEED, 'hex'))
-        let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
-        let sigBuf = DilithiumWallet.ExtractSignature(signature)
+        let signatureMessage = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
+        let sigBuf = DilithiumWallet.ExtractSignature(signatureMessage)
         expect(Buffer.from(sigBuf, 'binary').toString('hex')).to.equal(SIGNATURE.toString(16))
     })
 })

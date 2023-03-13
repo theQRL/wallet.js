@@ -174,4 +174,13 @@ describe('GetDilithiumAddressFromPK', () => {
     })
 })
 
+describe('isValidDilithiumAddress', () => {
+    it('should check it dilithium address is valid', () => {
+        const pk = Buffer.from(PK, 'hex');
+        let address = DilithiumWallet.GetDilithiumAddressFromPK(pk)
+        let bool = DilithiumWallet.IsValidDilithiumAddress(address)
+        expect(bool).to.equal(true)
+    })
+})
+
 

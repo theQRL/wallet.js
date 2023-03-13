@@ -36,7 +36,7 @@ function New() {
     dilithium.Seal = Seal.bind(dilithium)
     dilithium.Sign = Sign.bind(dilithium)
     dilithium.GetAddress = GetAddress.bind(dilithium)
-    
+
     return dilithium
 }
 
@@ -71,7 +71,7 @@ function NewDilithiumFromSeed(seed) {
     dilithium.Seal = Seal.bind(dilithium)
     dilithium.Sign = Sign.bind(dilithium)
     dilithium.GetAddress = GetAddress.bind(dilithium)
-    
+
     return dilithium
 }
 
@@ -88,10 +88,10 @@ function GetSeed() {
 }
 
 function GetHexSeed() {
-    return '0x'+this.seed.toString('hex')
+    return '0x' + this.seed.toString('hex')
 }
 
-function  GetMnemonic() {
+function GetMnemonic() {
     return SeedBinToMnemonic(this.seed)
 }
 
@@ -115,31 +115,31 @@ function GetAddress() {
 
 // Open the sealed message m. Returns the original message sealed with signature.
 // In case the signature is invalid, nil is returned.
-function Open(signatureMessage, pk){
-	return cryptoSignOpen(signatureMessage, pk)
+function Open(signatureMessage, pk) {
+    return cryptoSignOpen(signatureMessage, pk)
 }
 
 function Verify(message, signature, pk) {
-	return cryptoSignVerify(signature, message, pk)
+    return cryptoSignVerify(signature, message, pk)
 }
 
 // ExtractMessage extracts message from Signature attached with message.
 function ExtractMessage(signatureMessage) {
-	return signatureMessage.slice(CryptoBytes, signatureMessage.length)
+    return signatureMessage.slice(CryptoBytes, signatureMessage.length)
 }
 
 // ExtractSignature extracts signature from Signature attached with message.
 function ExtractSignature(signatureMessage) {
-	return signatureMessage.slice(0, CryptoBytes)
+    return signatureMessage.slice(0, CryptoBytes)
 }
 
 function GetDilithiumDescriptor() {
-	/*
-		In case of Dilithium address, it doesn't have any choice of hashFunction,
-		height, addrFormatType. Thus keeping all those values to 0 and assigning
-		only signatureType in the descriptor.
-	*/
-	return 2 << 4
+    /*
+        In case of Dilithium address, it doesn't have any choice of hashFunction,
+        height, addrFormatType. Thus keeping all those values to 0 and assigning
+        only signatureType in the descriptor.
+    */
+    return 2 << 4
 }
 
 function GetDilithiumAddressFromPK(pk) {
@@ -151,21 +151,21 @@ function GetDilithiumAddressFromPK(pk) {
     var hashedKey = new SHAKE(256)
     hashedKey.update(Buffer.from(pk))
     let hashedKeyDigest = hashedKey.digest({ buffer: Buffer.alloc(32), encoding: 'hex' })
-    hashedKeyDigest = hashedKeyDigest.slice(hashedKeyDigest.length-addressSize+1)
-    for(let i = 0; i<hashedKeyDigest.length; i++){
-        address[i+1] = hashedKeyDigest[i]
+    hashedKeyDigest = hashedKeyDigest.slice(hashedKeyDigest.length - addressSize + 1)
+    for (let i = 0; i < hashedKeyDigest.length; i++) {
+        address[i + 1] = hashedKeyDigest[i]
     }
-	return address
+    return address
 }
 
 function IsValidDilithiumAddress(address) {
-	let d = GetDilithiumDescriptor()
-	if (address[0] != d) {
-		return false
-	}
+    let d = GetDilithiumDescriptor()
+    if (address[0] != d) {
+        return false
+    }
 
-	// TODO: Add checksum
-	return true
+    // TODO: Add checksum
+    return true
 }
 
 let DilithiumWallet;

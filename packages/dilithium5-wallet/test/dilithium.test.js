@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import {New, NewDilithiumFromSeed, GetDilithiumDescriptor, Open, Verify} from '../src/dilithium.js';
+import {New, NewDilithiumFromSeed, GetDilithiumDescriptor, Open, Verify, ExtractMessage, ExtractSignature, GetDilithiumAddressFromPK} from '../src/dilithium.js';
 
 const HASHEDSEED = '8078f74eb51029b5b96cfbe2bd0ab8433252bf4c6c8fbad92789add5e3cca216';
 const PK =
@@ -143,6 +143,34 @@ describe('Verify', () => {
         const pk = Buffer.from(PK, 'hex');
         let bool = Verify(msg, sig, pk)
         expect(bool).to.equal(true);
+    })
+})
+
+describe('ExtractMessage', () => {
+    it('should extract message from signature', () => {
+        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
+        let messageBuf = ExtractMessage(signature)
+        expect(Buffer.from(messageBuf, 'binary').toString('hex')).to.equal(MESSAGE.toString(16))
+    })
+})
+
+describe('ExtractSignature', () => {
+    it('should extract signature from Signature attached with message', () => {
+        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
+        let sigBuf = ExtractSignature(signature)
+        expect(Buffer.from(sigBuf, 'binary').toString('hex')).to.equal(SIGNATURE.toString(16))
+    })
+})
+
+describe('GetDilithiumAddressFromPK', () => {
+    it('should fetch dilithium address from public key', () => {
+        const pk = Buffer.from(PK, 'hex');
+        let address = GetDilithiumAddressFromPK(pk)
+        let d = GetDilithiumDescriptor()
+        expect(address.length).to.equal(20)
+        expect(address[0]).to.equal(d)
     })
 })
 

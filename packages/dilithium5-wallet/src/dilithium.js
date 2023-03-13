@@ -118,7 +118,7 @@ export function Verify(message, signature, pk) {
 
 // ExtractMessage extracts message from Signature attached with message.
 export function ExtractMessage(signatureMessage) {
-	return signatureMessage.slice(CryptoBytes, signatureMessage.length - 1)
+	return signatureMessage.slice(CryptoBytes, signatureMessage.length)
 }
 
 // ExtractSignature extracts signature from Signature attached with message.

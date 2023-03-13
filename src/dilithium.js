@@ -144,11 +144,11 @@ function GetDilithiumDescriptor() {
 
 function GetDilithiumAddressFromPK(pk) {
     let addressSize = 20
-	var address = new Uint8Array(addressSize)
-	let descBytes = GetDilithiumDescriptor()
-	address[0] = descBytes
+    var address = new Uint8Array(addressSize)
+    let descBytes = GetDilithiumDescriptor()
+    address[0] = descBytes
 
-	var hashedKey = new SHAKE(256)
+    var hashedKey = new SHAKE(256)
     hashedKey.update(Buffer.from(pk))
     let hashedKeyDigest = hashedKey.digest({ buffer: Buffer.alloc(32), encoding: 'hex' })
     hashedKeyDigest = hashedKeyDigest.slice(hashedKeyDigest.length-addressSize+1)

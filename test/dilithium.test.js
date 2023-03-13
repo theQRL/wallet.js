@@ -111,6 +111,7 @@ describe('NewDilithiumFromSeed', ()=>{
         let d = DilithiumWallet.GetDilithiumDescriptor()
         expect(address.length).to.equal(20)
         expect(address[0]).to.equal(d)
+        expect(Buffer.from(address, 'binary').toString('hex')).to.equal(ADDRESS)
     });
 
     it('should be able to sign message with Seal method', () => {

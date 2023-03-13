@@ -1,19 +1,30 @@
 {
-  "name": "@theqrl/postquantum-crypto-wallet",
-  "version": "0.0.0",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "name": "@theqrl/wallet.js",
+  "version": "0.0.1",
+  "description": "",
+  "main": "src/index.js",
   "scripts": {
-    "test": "FORCE_COLOR=1 turbo test",
-    "report-coverage": "turbo report-coverage"
+    "test": "mocha",
+    "lint-check": "eslint 'src/**/*.js' 'test/**/*.js'",
+    "lint": "eslint --fix 'src/**/*.js' 'test/**/*.js'"
   },
+  "author": "QRL contributors <info@theqrl.org> (https://theqrl.org)",
+  "license": "MIT",
+  "dependencies": {
+    "@theqrl/dilithium5": "0.0.6",
+    "randombytes": "^2.1.0",
+    "sha3": "^2.1.4"
+  },
+  "type": "module",
+  "directories": {
+    "lib": "src",
+    "test": "test"
+  },
+  "files": [
+    "src"
+  ],
   "devDependencies": {
-    "turbo": "^1.7.0"
-  },
-  "engines": {
-    "node": ">=14.0.0"
-  },
-  "dependencies": {}
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
+  }
 }

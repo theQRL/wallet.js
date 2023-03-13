@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import {New, NewDilithiumFromSeed, GetDilithiumDescriptor, Open, Verify, ExtractMessage, ExtractSignature, GetDilithiumAddressFromPK} from '../src/dilithium.js';
+import DilithiumWallet from '../src/dilithium.js';
 
 const HASHEDSEED = '8078f74eb51029b5b96cfbe2bd0ab8433252bf4c6c8fbad92789add5e3cca216';
 const PK =
@@ -12,55 +12,55 @@ const SIGNATURE =
 
 describe('New', () => {
     it('should generate new dilithium keys', () => {
-        New()
+        DilithiumWallet.New()
     });
 
     it('should return public key from GetPK method', () => {
-        let dilithium = New()
+        let dilithium = DilithiumWallet.New()
         let pk = dilithium.GetPK()
         expect(Buffer.from(pk, 'binary').toString('hex').length).to.equal(PK.length)
     });
 
     it('should return secret key from GetSK method', () => {
-        let dilithium = New()
+        let dilithium = DilithiumWallet.New()
         let sk = dilithium.GetSK()
         expect(Buffer.from(sk, 'binary').toString('hex').length).to.equal(SK.length)
     });
 
     it('should return seed from GetSeed method', () => {
-        let dilithium = New()
+        let dilithium = DilithiumWallet.New()
         let seed = dilithium.GetSeed()
         expect(Buffer.from(seed, 'binary').toString('hex').length).to.equal(64)
     });
 
     it('should return hexSeed from GetHexSeed method', () => {
-        let dilithium = New()
+        let dilithium = DilithiumWallet.New()
         let hexSeed = dilithium.GetHexSeed()
         expect(hexSeed.length).to.equal(HASHEDSEED.length+2)
     });
 
     it('should return mnemonic from GetMnemonic method', () => {
-        let dilithium = New()
+        let dilithium = DilithiumWallet.New()
         let mnemonic = dilithium.GetMnemonic()
         expect(mnemonic.split(' ').length).to.equal(22)
     });
 
     it('should return address from GetAddress method', () => {
-        let dilithium  = New()
+        let dilithium  = DilithiumWallet.New()
         let address = dilithium.GetAddress()
-        let d = GetDilithiumDescriptor()
+        let d = DilithiumWallet.GetDilithiumDescriptor()
         expect(address.length).to.equal(20)
         expect(address[0]).to.equal(d)
     })
 
     it('should be able to sign message with Seal method', () => {
-        let dilithium  = New()
+        let dilithium  = DilithiumWallet.New()
         let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
         expect(signature.length).to.equal(4602)
     })
 
     it('should be able to sign message with Sign method', () => {
-        let dilithium = New()
+        let dilithium = DilithiumWallet.New()
         let signature = dilithium.Sign(Buffer.from(MESSAGE, 'hex'))
         expect(signature.length).to.equal(4595)
     })
@@ -68,58 +68,58 @@ describe('New', () => {
 
 describe('NewDilithiumFromSeed', ()=>{
     it('should generate dilithium keys from seed', () => {
-        let dilithium = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         expect(Buffer.from(dilithium.pk, 'binary').toString('hex')).to.equal(PK);
         expect(Buffer.from(dilithium.sk, 'binary').toString('hex')).to.equal(SK);
     });
 
     it('should return public key from GetPK method', () => {
-        let dilithium = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let pk = dilithium.GetPK()
         expect(Buffer.from(pk, 'binary').toString('hex')).to.equal(PK)
     });
 
     it('should return secret key from GetSK method', () => {
-        let dilithium = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let sk = dilithium.GetSK()
         expect(Buffer.from(sk, 'binary').toString('hex')).to.equal(SK)
     });
 
     it('should return seed from GetSeed method', () => {
-        let dilithium = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let seed = dilithium.GetSeed()
         expect(Buffer.from(seed, 'binary').toString('hex').length).to.equal(64)
     });
 
     it('should return hexSeed from GetHexSeed method', () => {
-        let dilithium = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let hexSeed = dilithium.GetHexSeed()
         expect(hexSeed).to.equal('0x'+HASHEDSEED)
     });
 
     it('should return mnemonic from GetMnemonic method', () => {
-        let dilithium = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let mnemonic = dilithium.GetMnemonic()
         expect(mnemonic.split(' ').length).to.equal(22)
     });
 
     it('should return address from GetAddress method', () => {
-        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium  = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let address = dilithium.GetAddress()
-        let d = GetDilithiumDescriptor()
+        let d = DilithiumWallet.GetDilithiumDescriptor()
         expect(address.length).to.equal(20)
         expect(address[0]).to.equal(d)
     });
 
     it('should be able to sign message with Seal method', () => {
-        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium  = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
         expect(signature.length).to.equal(4602)
         expect(Buffer.from(signature, 'binary').toString('hex')).to.equal(SIGNATURE + MESSAGE);
     });
 
     it('should be able to sign message with Sign method', () => {
-        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium  = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let signature = dilithium.Sign(Buffer.from(MESSAGE, 'hex'))
         expect(signature.length).to.equal(4595)
         expect(Buffer.from(signature, 'binary').toString('hex')).to.equal(SIGNATURE);
@@ -131,7 +131,7 @@ describe('Open', () => {
     it('should open sealed message and return origional message with signature', () => {
         const sigMessage = Buffer.from(SIGNATURE + MESSAGE, 'hex');
         const pk = Buffer.from(PK, 'hex');
-        const openedMessage = Open(sigMessage, pk)
+        const openedMessage = DilithiumWallet.Open(sigMessage, pk)
         expect(Buffer.from(openedMessage, 'binary').toString('hex')).to.equal(MESSAGE);
     })
 })
@@ -141,25 +141,25 @@ describe('Verify', () => {
         const sig = Buffer.from(SIGNATURE, 'hex');
         const msg = Buffer.from(MESSAGE, 'hex');
         const pk = Buffer.from(PK, 'hex');
-        let bool = Verify(msg, sig, pk)
+        let bool = DilithiumWallet.Verify(msg, sig, pk)
         expect(bool).to.equal(true);
     })
 })
 
 describe('ExtractMessage', () => {
     it('should extract message from signature', () => {
-        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium  = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
-        let messageBuf = ExtractMessage(signature)
+        let messageBuf = DilithiumWallet.ExtractMessage(signature)
         expect(Buffer.from(messageBuf, 'binary').toString('hex')).to.equal(MESSAGE.toString(16))
     })
 })
 
 describe('ExtractSignature', () => {
     it('should extract signature from Signature attached with message', () => {
-        let dilithium  = NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
+        let dilithium  = DilithiumWallet.NewDilithiumFromSeed(Buffer.from(HASHEDSEED, 'hex'))
         let signature = dilithium.Seal(Buffer.from(MESSAGE, 'hex'))
-        let sigBuf = ExtractSignature(signature)
+        let sigBuf = DilithiumWallet.ExtractSignature(signature)
         expect(Buffer.from(sigBuf, 'binary').toString('hex')).to.equal(SIGNATURE.toString(16))
     })
 })
@@ -167,8 +167,8 @@ describe('ExtractSignature', () => {
 describe('GetDilithiumAddressFromPK', () => {
     it('should fetch dilithium address from public key', () => {
         const pk = Buffer.from(PK, 'hex');
-        let address = GetDilithiumAddressFromPK(pk)
-        let d = GetDilithiumDescriptor()
+        let address = DilithiumWallet.GetDilithiumAddressFromPK(pk)
+        let d = DilithiumWallet.GetDilithiumDescriptor()
         expect(address.length).to.equal(20)
         expect(address[0]).to.equal(d)
     })

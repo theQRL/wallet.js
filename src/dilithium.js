@@ -4,7 +4,7 @@ import { cryptoSign, cryptoSignKeypair, cryptoSignOpen, cryptoSignVerify, crypto
 import { SeedBinToMnemonic } from './utils/mnemonic.js';
 const randomBytes = pkg;
 
-export function New() {
+function New() {
     var pk = new Uint8Array(CryptoPublicKeyBytes);
     var sk = new Uint8Array(CryptoSecretKeyBytes);
 
@@ -36,7 +36,7 @@ export function New() {
     return dilithium
 }
 
-export function NewDilithiumFromSeed(seed) {
+function NewDilithiumFromSeed(seed) {
     var pk = new Uint8Array(CryptoPublicKeyBytes);
     var sk = new Uint8Array(CryptoSecretKeyBytes);
 
@@ -108,25 +108,25 @@ function GetAddress() {
 
 // Open the sealed message m. Returns the original message sealed with signature.
 // In case the signature is invalid, nil is returned.
-export function Open(signatureMessage, pk){
+function Open(signatureMessage, pk){
 	return cryptoSignOpen(signatureMessage, pk)
 }
 
-export function Verify(message, signature, pk) {
+function Verify(message, signature, pk) {
 	return cryptoSignVerify(signature, message, pk)
 }
 
 // ExtractMessage extracts message from Signature attached with message.
-export function ExtractMessage(signatureMessage) {
+function ExtractMessage(signatureMessage) {
 	return signatureMessage.slice(CryptoBytes, signatureMessage.length)
 }
 
 // ExtractSignature extracts signature from Signature attached with message.
-export function ExtractSignature(signatureMessage) {
+function ExtractSignature(signatureMessage) {
 	return signatureMessage.slice(0, CryptoBytes)
 }
 
-export function GetDilithiumDescriptor() {
+function GetDilithiumDescriptor() {
 	/*
 		In case of Dilithium address, it doesn't have any choice of hashFunction,
 		height, addrFormatType. Thus keeping all those values to 0 and assigning
@@ -135,7 +135,7 @@ export function GetDilithiumDescriptor() {
 	return 3 << 4
 }
 
-export function GetDilithiumAddressFromPK(pk) {
+function GetDilithiumAddressFromPK(pk) {
     let addressSize = 20
 	var address = new Uint8Array(addressSize)
 	let descBytes = GetDilithiumDescriptor()
@@ -151,7 +151,7 @@ export function GetDilithiumAddressFromPK(pk) {
 	return address
 }
 
-export function IsValidDilithiumAddress(address) {
+function IsValidDilithiumAddress(address) {
 	let d = GetDilithiumDescriptor()
 	if (address[0] != d) {
 		return false
@@ -159,5 +159,11 @@ export function IsValidDilithiumAddress(address) {
 
 	// TODO: Add checksum
 	return true
+}
+
+let DilithiumWallet;
+
+export default DilithiumWallet = {
+    New, NewDilithiumFromSeed, Open, Verify, ExtractMessage, ExtractSignature, GetDilithiumDescriptor, GetDilithiumAddressFromPK, IsValidDilithiumAddress
 }
 

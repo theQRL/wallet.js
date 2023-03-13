@@ -8,8 +8,12 @@ function New() {
     var pk = new Uint8Array(CryptoPublicKeyBytes);
     var sk = new Uint8Array(CryptoSecretKeyBytes);
 
-    var seed = randomBytes(SeedBytes)
-    seed = cryptoSignKeypair(seed, pk, sk);
+    var seed = randomBytes(48)
+    const hashedSeed = new SHAKE(256);
+    hashedSeed.update(seed);
+    let seedBuf = hashedSeed.digest({ buffer: Buffer.alloc(32) })
+
+    cryptoSignKeypair(seedBuf, pk, sk);
     let dilithium = {
         pk: pk,
         sk: sk,
@@ -43,11 +47,11 @@ function NewDilithiumFromSeed(seed) {
     const hashedSeed = new SHAKE(256);
     hashedSeed.update(seed);
     let seedBuf = hashedSeed.digest({ buffer: Buffer.alloc(32) })
-    let outputSeed = cryptoSignKeypair(seedBuf, pk, sk);
+    cryptoSignKeypair(seedBuf, pk, sk);
     let dilithium = {
         pk: pk,
         sk: sk,
-        seed: outputSeed,
+        seed: seed,
         randomizedSigning: false,
         GetPK: new Function,
         GetSK: new Function,
@@ -135,7 +139,7 @@ function GetDilithiumDescriptor() {
 		height, addrFormatType. Thus keeping all those values to 0 and assigning
 		only signatureType in the descriptor.
 	*/
-	return 3 << 4
+	return 2 << 4
 }
 
 function GetDilithiumAddressFromPK(pk) {
@@ -146,10 +150,10 @@ function GetDilithiumAddressFromPK(pk) {
 
 	var hashedKey = new SHAKE(256)
     hashedKey.update(Buffer.from(pk))
-    let hashedKeyDigest = hashedKey.digest({ buffer: Buffer.alloc(32), format: 'hex' })
-    hashedKeyDigest = hashedKeyDigest.slice(hashedKey.length-addressSize+1)
+    let hashedKeyDigest = hashedKey.digest({ buffer: Buffer.alloc(32), encoding: 'hex' })
+    hashedKeyDigest = hashedKeyDigest.slice(hashedKeyDigest.length-addressSize+1)
     for(let i = 0; i<hashedKeyDigest.length; i++){
-        address.fill(hashedKeyDigest[i], i+1, i+2)
+        address[i+1] = hashedKeyDigest[i]
     }
 	return address
 }

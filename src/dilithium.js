@@ -40,11 +40,14 @@ function NewDilithiumFromSeed(seed) {
     var pk = new Uint8Array(CryptoPublicKeyBytes);
     var sk = new Uint8Array(CryptoSecretKeyBytes);
 
-    seed = cryptoSignKeypair(seed, pk, sk);
+    const hashedSeed = new SHAKE(256);
+    hashedSeed.update(seed);
+    let seedBuf = hashedSeed.digest({ buffer: Buffer.alloc(32) })
+    let outputSeed = cryptoSignKeypair(seedBuf, pk, sk);
     let dilithium = {
         pk: pk,
         sk: sk,
-        seed: seed,
+        seed: outputSeed,
         randomizedSigning: false,
         GetPK: new Function,
         GetSK: new Function,

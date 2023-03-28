@@ -1,1 +1,3 @@
-export * from './wordlist.js'
+import { WordList } from './wordlist.js';
+
+export default WordList;

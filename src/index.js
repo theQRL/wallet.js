@@ -1,1 +1,1 @@
-export default './dilithium.js'
+export default './dilithium.js';

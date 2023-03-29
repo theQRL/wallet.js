@@ -24,8 +24,16 @@
     "src"
   ],
   "devDependencies": {
+    "c8": "^7.13.0",
     "chai": "^4.3.7",
+    "codecov": "^3.8.3",
+    "eslint": "^8.37.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-prettier": "^4.2.1",
     "esm": "^3.2.25",
-    "mocha": "^10.2.0"
+    "mocha": "^10.2.0",
+    "prettier": "^2.8.7"
   }
 }

@@ -1,4 +1,4 @@
-export const WordList = [
+const WordList = [
   'aback',
   'abbey',
   'abbot',
@@ -4097,4 +4097,4 @@ export const WordList = [
   'zurich',
 ];
 
-export default WordList;
+module.exports = WordList;

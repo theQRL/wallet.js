@@ -1,1 +1,2 @@
-export default './dilithium.js';
+const DilithiumWallet =  require('./dilithium.js');
+module.exports = DilithiumWallet;

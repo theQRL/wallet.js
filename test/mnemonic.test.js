@@ -1,5 +1,5 @@
-import { expect } from 'chai';
-import { SeedBinToMnemonic } from '../src/utils/mnemonic.js';
+const {expect} = require('chai');
+const SeedBinToMnemonic = require('../src/utils/mnemonic.js');
 
 describe('SeedBinToMnemonic', () => {
   it('should throw if seed byte count is not a multiple of 3 ', () => {

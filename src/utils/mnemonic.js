@@ -1,4 +1,4 @@
-import { WordList } from '../qrl/wordlist.js';
+const { WordList } = require('../qrl/wordlist.js');
 
 function binToMnemonic(input) {
   if (input.length % 3 !== 0) {
@@ -25,8 +25,8 @@ function binToMnemonic(input) {
   return mnemonic;
 }
 
-export function SeedBinToMnemonic(input) {
+function SeedBinToMnemonic(input) {
   return binToMnemonic(input);
 }
 
-export default SeedBinToMnemonic;
+module.exports = { SeedBinToMnemonic };

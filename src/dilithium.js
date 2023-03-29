@@ -1,6 +1,7 @@
-import pkg from 'randombytes';
-import { SHAKE } from 'sha3';
-import {
+const { SHAKE } = require('sha3');
+const randomBytes = require('randombytes');
+
+const {
   cryptoSign,
   cryptoSignKeypair,
   cryptoSignOpen,
@@ -10,12 +11,10 @@ import {
   CryptoSecretKeyBytes,
   // SeedBytes,
   CryptoBytes,
-} from '@theqrl/dilithium5';
-import { SeedBinToMnemonic } from './utils/mnemonic.js';
+} = require('@theqrl/dilithium5');
+const { SeedBinToMnemonic } = require('./utils/mnemonic.js');
 
-const randomBytes = pkg;
-
-export function getDilithiumDescriptor(address) {
+function getDilithiumDescriptor(address) {
   /*
         In case of Dilithium address, it doesn't have any choice of hashFunction,
         height, addrFormatType. Thus keeping all those values to 0 and assigning
@@ -27,7 +26,7 @@ export function getDilithiumDescriptor(address) {
   return 2 << 4;
 }
 
-export function getDilithiumAddressFromPK(pk) {
+function getDilithiumAddressFromPK(pk) {
   const addressSize = 20;
   const address = new Uint8Array(addressSize);
   const descBytes = getDilithiumDescriptor(address);
@@ -42,7 +41,7 @@ export function getDilithiumAddressFromPK(pk) {
   return address;
 }
 
-export class Dilithium {
+class Dilithium {
   constructor(seed = null) {
     this.pk = null;
     this.sk = null;
@@ -120,25 +119,25 @@ export class Dilithium {
 
 // Open the sealed message m. Returns the original message sealed with signature.
 // In case the signature is invalid, nil is returned.
-export function openMessage(signatureMessage, pk) {
+function openMessage(signatureMessage, pk) {
   return cryptoSignOpen(signatureMessage, pk);
 }
 
-export function verifyMessage(message, signature, pk) {
+function verifyMessage(message, signature, pk) {
   return cryptoSignVerify(signature, message, pk);
 }
 
 // ExtractMessage extracts message from Signature attached with message.
-export function extractMessage(signatureMessage) {
+function extractMessage(signatureMessage) {
   return signatureMessage.slice(CryptoBytes, signatureMessage.length);
 }
 
 // ExtractSignature extracts signature from Signature attached with message.
-export function extractSignature(signatureMessage) {
+function extractSignature(signatureMessage) {
   return signatureMessage.slice(0, CryptoBytes);
 }
 
-export function isValidDilithiumAddress(address) {
+function isValidDilithiumAddress(address) {
   const d = getDilithiumDescriptor(address);
   if (address[0] !== d) {
     return false;
@@ -146,3 +145,14 @@ export function isValidDilithiumAddress(address) {
   // TODO: Add checksum
   return true;
 }
+
+module.exports = {
+  Dilithium,
+  getDilithiumAddressFromPK,
+  getDilithiumDescriptor,
+  openMessage,
+  verifyMessage,
+  extractMessage,
+  extractSignature,
+  isValidDilithiumAddress,
+};

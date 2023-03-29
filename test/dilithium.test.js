@@ -1,6 +1,8 @@
-import { expect } from 'chai';
-import { CryptoPublicKeyBytes, CryptoSecretKeyBytes, CryptoBytes } from '@theqrl/dilithium5';
-import {
+const { CryptoPublicKeyBytes, CryptoSecretKeyBytes, CryptoBytes } = require('@theqrl/dilithium5');
+
+const { expect } = require('chai');
+
+const {
   Dilithium,
   getDilithiumDescriptor,
   openMessage,
@@ -9,7 +11,7 @@ import {
   extractSignature,
   getDilithiumAddressFromPK,
   isValidDilithiumAddress,
-} from '../src/dilithium.js';
+} = require('../src/dilithium.js');
 
 const DilithiumWallet = Dilithium;
 

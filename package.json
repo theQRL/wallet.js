@@ -6,7 +6,8 @@
   "scripts": {
     "test": "mocha",
     "lint-check": "eslint 'src/**/*.js' 'test/**/*.js'",
-    "lint": "eslint --fix 'src/**/*.js' 'test/**/*.js'"
+    "lint": "eslint --fix 'src/**/*.js' 'test/**/*.js'",
+    "report-coverage": "c8 --reporter=text-lcov npm run test > coverage.lcov"
   },
   "author": "QRL contributors <info@theqrl.org> (https://theqrl.org)",
   "license": "MIT",

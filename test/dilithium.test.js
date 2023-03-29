@@ -219,3 +219,11 @@ describe('isValidDilithiumAddress', () => {
     expect(bool).to.equal(false);
   });
 });
+
+describe('getDilithiumDescriptor', () => {
+  it('getDilithiumDescriptor will throw if passed without an address', () => {
+    expect(() => {
+      getDilithiumDescriptor();
+    }).to.throw();
+  });
+});

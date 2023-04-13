@@ -34,4 +34,25 @@ describe('MnemonicToSeedBin', () => {
     const output = MnemonicToSeedBin(mnemonic);
     expect(Buffer.from(output).toString('hex')).to.equal(HEXSEED);
   });
+  it('should throw if word count is odd', () => {
+    const invalidMnemonic =
+      'veto waiter rail aroma aunt chess fiend than sahara unwary punk dawn belong agent sane reefy loyal from judas clean paste rho madam poor pay convoy duty circa hybrid circus exempt';
+    expect(() => {
+      MnemonicToSeedBin(invalidMnemonic);
+    }).to.throw();
+  });
+  it('should throw if there is invalid word in mnemonic', () => {
+    const invalidMnemonic =
+      'veto waiter rail aroma aunt chess fiend than sahara unwary punk dawn belong agent sane reefy loyal from judas clean paste rho madam poor pay convoy duty circa hybrid circus exempt splashed';
+    expect(() => {
+      MnemonicToSeedBin(invalidMnemonic);
+    }).to.throw();
+  });
+  it('should throw seed output size is invalid', () => {
+    const invalidMnemonic =
+      'veto waiter rail aroma aunt chess fiend than sahara unwary punk dawn belong agent sane reefy loyal from judas clean paste rho madam poor pay convoy duty circa hybrid circus exempt splashed exempt splashed';
+    expect(() => {
+      MnemonicToSeedBin(invalidMnemonic);
+    }).to.throw();
+  });
 });

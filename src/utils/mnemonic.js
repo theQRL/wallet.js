@@ -30,63 +30,64 @@ function SeedBinToMnemonic(input) {
 }
 
 function mnemonicToBin(mnemonic) {
-  mnemonicWords = mnemonic.split(' ')
-  wordCount = mnemonicWords.length
-  if (wordCount % 2 != 0) {
-    throw new Error("word count must be even")
+  const mnemonicWords = mnemonic.split(' ');
+  const wordCount = mnemonicWords.length;
+  if (wordCount % 2 !== 0) {
+    throw new Error('word count must be even');
   }
 
-  wordLookup = {}
+  const wordLookup = {};
   WordList.map((word, i) => {
-    wordLookup[word] = i
-  })
+    wordLookup[word] = i;
+    return word;
+  });
 
-  result = new Uint8Array(wordCount * 15 / 10)
+  const result = new Uint8Array((wordCount * 15) / 10);
 
-  let current = 0
-  let buffering = 0
-  let resultIndex = 0
+  let current = 0;
+  let buffering = 0;
+  let resultIndex = 0;
 
   mnemonicWords.map((w) => {
-    value = wordLookup[w]
-    if (value == undefined || value == null) {
-      throw new Error("invalid word in mnemonic")
+    const value = wordLookup[w];
+    if (value === undefined || value === null) {
+      throw new Error('invalid word in mnemonic');
     }
 
-    buffering += 3
-    current = (current << 12) + value
-    let shift
-    let mask
-    let tmp
-    for (; buffering > 2;) {
-      shift = 4 * (buffering - 2)
-      mask = (1 << shift) - 1
-      tmp = current >> shift
-      buffering -= 2
-      current &= mask
-      result[resultIndex] = tmp
-      resultIndex++
+    buffering += 3;
+    current = (current << 12) + value;
+    let shift;
+    let mask;
+    let tmp;
+    for (; buffering > 2; ) {
+      shift = 4 * (buffering - 2);
+      mask = (1 << shift) - 1;
+      tmp = current >> shift;
+      buffering -= 2;
+      current &= mask;
+      result[resultIndex] = tmp;
+      resultIndex++;
     }
-  })
+    return w;
+  });
 
   if (buffering > 0) {
-    result[resultIndex] = current & 0xFF
-    resultIndex++
+    result[resultIndex] = current & 0xff;
+    resultIndex++;
   }
-  return result
+  return result;
 }
 
 function MnemonicToSeedBin(mnemonic) {
-  let output = mnemonicToBin(mnemonic)
+  const output = mnemonicToBin(mnemonic);
 
-  if (output.length != 48) {
-    throw new Error("unexpected MnemonicToSeedBin output size")
+  if (output.length !== 48) {
+    throw new Error('unexpected MnemonicToSeedBin output size');
   }
 
-  let sizedOutput = new Uint8Array(48)
-  sizedOutput.set(output)
-  return output
+  const sizedOutput = new Uint8Array(48);
+  sizedOutput.set(output);
+  return output;
 }
-
 
 module.exports = { SeedBinToMnemonic, MnemonicToSeedBin };

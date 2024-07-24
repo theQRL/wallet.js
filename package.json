@@ -3,6 +3,7 @@
   "version": "0.1.1",
   "description": "",
   "main": "src/dilithium.js",
+  "types": "types/index.d.ts",
   "scripts": {
     "test": "mocha",
     "lint-check": "eslint 'src/**/*.js' 'test/**/*.js'",
@@ -25,6 +26,7 @@
     "src"
   ],
   "devDependencies": {
+    "@types/node": "^20.14.12",
     "c8": "^7.13.0",
     "chai": "^4.3.7",
     "codecov": "^3.8.3",
@@ -34,6 +36,7 @@
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-prettier": "^4.2.1",
     "mocha": "^10.2.0",
-    "prettier": "^2.8.7"
+    "prettier": "^2.8.7",
+    "typescript": "^5.5.4"
   }
 }

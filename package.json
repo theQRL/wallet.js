@@ -2,7 +2,7 @@
   "name": "@theqrl/wallet.js",
   "version": "0.1.1",
   "description": "",
-  "main": "src/dilithium.js",
+  "main": "src/index.js",
   "types": "types/index.d.ts",
   "scripts": {
     "test": "mocha",

@@ -1,12 +1,13 @@
-import dilithium = require("./dilithium.js");
-import mnemonic = require("./utils/mnemonic.js");
-export let Dilithium: typeof dilithium.Dilithium;
-export let extractMessage: typeof dilithium.extractMessage;
-export let extractSignature: typeof dilithium.extractSignature;
-export let getDilithiumAddressFromPK: typeof dilithium.getDilithiumAddressFromPK;
-export let getDilithiumDescriptor: typeof dilithium.getDilithiumDescriptor;
-export let isValidDilithiumAddress: typeof dilithium.isValidDilithiumAddress;
-export let MnemonicToSeedBin: typeof mnemonic.MnemonicToSeedBin;
-export let SeedBinToMnemonic: typeof mnemonic.SeedBinToMnemonic;
-export let WORD_LIST: string[];
+import { Seed } from "./wallet/common/seed.js";
+import { SEED_SIZE } from "./wallet/common/constants.js";
+import { ExtendedSeed } from "./wallet/common/seed.js";
+import { EXTENDED_SEED_SIZE } from "./wallet/common/constants.js";
+import { Descriptor } from "./wallet/common/descriptor.js";
+import { DESCRIPTOR_SIZE } from "./wallet/common/constants.js";
+import { newMLDSA87Descriptor } from "./wallet/ml_dsa_87/descriptor.js";
+import { getAddressFromPKAndDescriptor } from "./wallet/common/address.js";
+import { WalletType } from "./wallet/common/wallettype.js";
+import { newWalletFromExtendedSeed } from "./wallet/factory.js";
+import { Wallet as MLDSA87 } from "./wallet/ml_dsa_87/wallet.js";
+export { Seed, SEED_SIZE, ExtendedSeed, EXTENDED_SEED_SIZE, Descriptor, DESCRIPTOR_SIZE, newMLDSA87Descriptor, getAddressFromPKAndDescriptor, WalletType, newWalletFromExtendedSeed, MLDSA87 };
 //# sourceMappingURL=index.d.ts.map

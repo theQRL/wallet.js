@@ -1,3 +1,13 @@
+/**
+ * Mnemonic word list used by encoding/decoding utilities.
+ * @module qrl/wordlist
+ */
+
+/**
+ * Ordered list of mnemonic words.
+ * @readonly
+ * @type {string[]}
+ */
 const WordList = [
   'aback',
   'abbey',

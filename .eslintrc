@@ -12,6 +12,9 @@
     "ecmaVersion": 2020,
     "sourceType": "module"
   },
+  "settings": {
+    "import/ignore": ["@theqrl/mldsa87"]
+  },
   "rules": {
     "prettier/prettier": "error",
     "import/extensions": ["error", "ignorePackages"],

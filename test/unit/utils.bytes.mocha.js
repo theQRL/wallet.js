@@ -1,5 +1,5 @@
-const { expect } = require('chai');
-const { isUint8, isHexLike, cleanHex, toFixedU8 } = require('../../src/utils/bytes.js');
+import { expect } from 'chai';
+import { isUint8, isHexLike, cleanHex, toFixedU8 } from '../../src/utils/bytes.js';
 
 describe('utils/bytes', () => {
   describe('isUint8', () => {

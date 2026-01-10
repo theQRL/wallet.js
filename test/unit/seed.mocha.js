@@ -1,9 +1,9 @@
-const { expect } = require('chai');
-const { sha256 } = require('@noble/hashes/sha2');
-const { Seed, ExtendedSeed } = require('../../src/wallet/common/seed.js');
-const { SEED_SIZE, EXTENDED_SEED_SIZE } = require('../../src/wallet/common/constants.js');
-const { getDescriptorBytes, Descriptor } = require('../../src/wallet/common/descriptor.js');
-const { WalletType } = require('../../src/wallet/common/wallettype.js');
+import { expect } from 'chai';
+import { sha256 } from '@noble/hashes/sha2';
+import { Seed, ExtendedSeed } from '../../src/wallet/common/seed.js';
+import { SEED_SIZE, EXTENDED_SEED_SIZE } from '../../src/wallet/common/constants.js';
+import { getDescriptorBytes, Descriptor } from '../../src/wallet/common/descriptor.js';
+import { WalletType } from '../../src/wallet/common/wallettype.js';
 
 function buildSeedBytes() {
   return Uint8Array.from(Array.from({ length: SEED_SIZE }, (_, i) => i));

@@ -2,14 +2,14 @@
  * @module wallet/ml_dsa_87/crypto
  */
 
-const {
+import {
   cryptoSignKeypair,
   cryptoSign,
   cryptoSignVerify,
   CryptoBytes,
   CryptoPublicKeyBytes,
   CryptoSecretKeyBytes,
-} = require('@theqrl/mldsa87');
+} from '@theqrl/mldsa87';
 
 /**
  * Generate a keypair.
@@ -18,18 +18,38 @@ const {
 function keygen(seed) {
   const pk = new Uint8Array(CryptoPublicKeyBytes);
   const sk = new Uint8Array(CryptoSecretKeyBytes);
-  const seedBuf = Buffer.from(seed.hashSHA256());
-  cryptoSignKeypair(seedBuf, pk, sk);
+  const seedBytes = new Uint8Array(seed.hashSHA256());
+  cryptoSignKeypair(seedBytes, pk, sk);
   return { pk, sk };
 }
 
 /**
+ * Check if input is a valid byte array (Uint8Array or Buffer).
+ * @param {unknown} input
+ * @returns {boolean}
+ */
+function isBytes(input) {
+  return input instanceof Uint8Array;
+}
+
+/**
  * Sign a message.
- * @param {Uint8Array} sk
- * @param {Uint8Array} message
+ * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes bytes)
+ * @param {Uint8Array} message - Message to sign
  * @returns {Uint8Array} signature
+ * @throws {Error} If sk or message is invalid
  */
 function sign(sk, message) {
+  if (!isBytes(sk)) {
+    throw new Error('sk must be Uint8Array or Buffer');
+  }
+  if (sk.length !== CryptoSecretKeyBytes) {
+    throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
+  }
+  if (!isBytes(message)) {
+    throw new Error('message must be Uint8Array or Buffer');
+  }
+
   const sm = cryptoSign(message, sk);
   let signature = new Uint8Array(CryptoBytes);
   signature = sm.slice(0, CryptoBytes);
@@ -38,20 +58,33 @@ function sign(sk, message) {
 
 /**
  * Verify a signature.
- * @param {Uint8Array} signature
- * @param {Uint8Array} message
- * @param {Uint8Array} pk
+ * @param {Uint8Array} signature - Signature to verify (must be CryptoBytes bytes)
+ * @param {Uint8Array} message - Original message
+ * @param {Uint8Array} pk - Public key (must be CryptoPublicKeyBytes bytes)
  * @returns {boolean}
+ * @throws {Error} If signature, message, or pk is invalid
  */
 function verify(signature, message, pk) {
-  const sigBuf = Buffer.from(signature);
-  const msgBuf = Buffer.from(message);
-  const pkBuf = Buffer.from(pk);
-  return cryptoSignVerify(sigBuf, msgBuf, pkBuf);
+  if (!isBytes(signature)) {
+    throw new Error('signature must be Uint8Array or Buffer');
+  }
+  if (signature.length !== CryptoBytes) {
+    throw new Error(`signature must be ${CryptoBytes} bytes, got ${signature.length}`);
+  }
+  if (!isBytes(message)) {
+    throw new Error('message must be Uint8Array or Buffer');
+  }
+  if (!isBytes(pk)) {
+    throw new Error('pk must be Uint8Array or Buffer');
+  }
+  if (pk.length !== CryptoPublicKeyBytes) {
+    throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
+  }
+
+  const sigBytes = new Uint8Array(signature);
+  const msgBytes = new Uint8Array(message);
+  const pkBytes = new Uint8Array(pk);
+  return cryptoSignVerify(sigBytes, msgBytes, pkBytes);
 }
 
-module.exports = {
-  keygen,
-  sign,
-  verify,
-};
+export { keygen, sign, verify };

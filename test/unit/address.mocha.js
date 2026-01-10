@@ -1,11 +1,11 @@
-const { expect } = require('chai');
-const { hexToBytes, bytesToHex } = require('@noble/hashes/utils');
-const { CryptoPublicKeyBytes } = require('@theqrl/mldsa87');
-const { walletTestCases } = require('../fixtures/ml_dsa_87.fixtures.js');
-const { addressToString, getAddressFromPKAndDescriptor } = require('../../src/wallet/common/address.js');
-const { Descriptor } = require('../../src/wallet/common/descriptor.js');
-const { DESCRIPTOR_SIZE } = require('../../src/wallet/common/constants.js');
-const { WalletType } = require('../../src/wallet/common/wallettype.js');
+import { expect } from 'chai';
+import { hexToBytes, bytesToHex } from '@noble/hashes/utils';
+import { CryptoPublicKeyBytes } from '@theqrl/mldsa87';
+import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
+import { addressToString, getAddressFromPKAndDescriptor } from '../../src/wallet/common/address.js';
+import { Descriptor } from '../../src/wallet/common/descriptor.js';
+import { DESCRIPTOR_SIZE } from '../../src/wallet/common/constants.js';
+import { WalletType } from '../../src/wallet/common/wallettype.js';
 
 describe('wallet/common/address', () => {
   const tc = walletTestCases[0];

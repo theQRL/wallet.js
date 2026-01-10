@@ -1,10 +1,10 @@
-const { expect } = require('chai');
-const { bytesToHex, utf8ToBytes, hexToBytes } = require('@noble/hashes/utils');
-const { walletTestCases } = require('../fixtures/ml_dsa_87.fixtures.js');
-const { ExtendedSeed } = require('../../src/wallet/common/seed.js');
-const { Wallet: MLDSA87 } = require('../../src/wallet/ml_dsa_87/wallet.js');
-const Wallet = require('../../src/wallet/factory.js');
-const { DESCRIPTOR_SIZE } = require('../../src/wallet/common/constants.js');
+import { expect } from 'chai';
+import { bytesToHex, utf8ToBytes, hexToBytes } from '@noble/hashes/utils';
+import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
+import { ExtendedSeed } from '../../src/wallet/common/seed.js';
+import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
+import * as Wallet from '../../src/wallet/factory.js';
+import { DESCRIPTOR_SIZE } from '../../src/wallet/common/constants.js';
 
 function createWalletFromSeed(tc) {
   const ext = ExtendedSeed.from(tc.extendedSeed);

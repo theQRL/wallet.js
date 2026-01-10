@@ -1,0 +1,55 @@
+name: Cross-Implementation Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  mldsa87-cross-verify:
+    name: ML-DSA-87 Cross-Verification (wallet.js <-> go-qrllib)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout wallet.js
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Install wallet.js dependencies
+        run: npm ci
+
+      - name: Clone go-qrllib
+        run: |
+          git clone --depth 1 https://github.com/theQRL/go-qrllib.git /tmp/go-qrllib
+          cd /tmp/go-qrllib
+          echo "go-qrllib commit: $(git rev-parse --short HEAD)"
+
+      - name: Generate wallet.js ML-DSA-87 signature
+        run: node .github/cross-verify/wallet_sign.js
+
+      - name: Verify wallet.js signature with go-qrllib
+        run: |
+          echo "=== Verifying wallet.js ML-DSA-87 signature with go-qrllib ==="
+          cd .github/cross-verify && go run wallet_verify.go
+          echo "wallet.js -> go-qrllib: PASSED"
+
+      - name: Generate go-qrllib ML-DSA-87 signature
+        run: |
+          cd /tmp/go-qrllib
+          go run "$GITHUB_WORKSPACE/.github/cross-verify/wallet_sign_goqrllib.go"
+
+      - name: Verify go-qrllib signature with wallet.js
+        run: |
+          echo "=== Verifying go-qrllib ML-DSA-87 signature with wallet.js ==="
+          node .github/cross-verify/wallet_verify.js
+          echo "go-qrllib -> wallet.js: PASSED"

@@ -3,14 +3,14 @@
  * @module utils/bytes
  */
 
-const { hexToBytes } = require('@noble/hashes/utils');
+import { hexToBytes } from '@noble/hashes/utils';
 
 /**
  * @param {unknown} input
  * @returns {boolean}
  */
-function isUint8(input) {
-  return input instanceof Uint8Array || Buffer.isBuffer(input);
+export function isUint8(input) {
+  return input instanceof Uint8Array;
 }
 
 /**
@@ -18,7 +18,7 @@ function isUint8(input) {
  * @param {unknown} input
  * @returns {boolean}
  */
-function isHexLike(input) {
+export function isHexLike(input) {
   if (typeof input !== 'string') return false;
   const s = input.trim().replace(/^0x/i, '');
   return /^[0-9a-fA-F\s:_-]*$/.test(s);
@@ -29,7 +29,7 @@ function isHexLike(input) {
  * @param {string} hex
  * @returns {string}
  */
-function cleanHex(hex) {
+export function cleanHex(hex) {
   return hex.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
 }
 
@@ -41,7 +41,7 @@ function cleanHex(hex) {
  * @param {string} [label='bytes']
  * @returns {Uint8Array}
  */
-function toFixedU8(input, expectedLen, label = 'bytes') {
+export function toFixedU8(input, expectedLen, label = 'bytes') {
   let bytes;
   if (isUint8(input)) {
     bytes = new Uint8Array(input);
@@ -57,10 +57,3 @@ function toFixedU8(input, expectedLen, label = 'bytes') {
   }
   return bytes;
 }
-
-module.exports = {
-  isUint8,
-  isHexLike,
-  cleanHex,
-  toFixedU8,
-};

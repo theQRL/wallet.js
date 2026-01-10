@@ -1,5 +1,5 @@
-const { expect } = require('chai');
-const { WalletType, isValidWalletType } = require('../../src/wallet/common/wallettype.js');
+import { expect } from 'chai';
+import { WalletType, isValidWalletType } from '../../src/wallet/common/wallettype.js';
 
 describe('wallet/common/wallettype', () => {
   it('exposes expected enum values', () => {

@@ -3,11 +3,11 @@
  * @module wallet/common/seed
  */
 
-const { sha256 } = require('@noble/hashes/sha2.js');
-const { SEED_SIZE, EXTENDED_SEED_SIZE, DESCRIPTOR_SIZE } = require('./constants.js');
-const { toFixedU8 } = require('../../utils/bytes.js');
-const { Descriptor } = require('./descriptor.js');
-const { isValidWalletType } = require('./wallettype.js');
+import { sha256 } from '@noble/hashes/sha2.js';
+import { SEED_SIZE, EXTENDED_SEED_SIZE, DESCRIPTOR_SIZE } from './constants.js';
+import { toFixedU8 } from '../../utils/bytes.js';
+import { Descriptor } from './descriptor.js';
+import { isValidWalletType } from './wallettype.js';
 
 class Seed {
   /**
@@ -120,7 +120,4 @@ class ExtendedSeed {
   }
 }
 
-module.exports = {
-  Seed,
-  ExtendedSeed,
-};
+export { Seed, ExtendedSeed };

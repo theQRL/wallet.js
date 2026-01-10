@@ -1,10 +1,21 @@
 {
   "name": "@theqrl/wallet.js",
   "version": "0.2.0",
-  "description": "",
-  "main": "src/index.js",
+  "description": "Quantum-resistant wallet library for The QRL using ML-DSA-87 (FIPS 204)",
+  "type": "module",
+  "main": "dist/cjs/wallet.js",
+  "module": "dist/mjs/wallet.js",
   "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./dist/mjs/wallet.js",
+      "require": "./dist/cjs/wallet.js"
+    }
+  },
   "scripts": {
+    "build": "rollup -c && ./fixup",
+    "prepublishOnly": "npm run build",
     "test": "mocha",
     "lint-check": "eslint 'src/**/*.js' 'test/**/*.js'",
     "lint": "eslint --fix 'src/**/*.js' 'test/**/*.js'",
@@ -15,15 +26,15 @@
   "license": "MIT",
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@theqrl/mldsa87": "file:../qrypto.js/packages/mldsa87",
-    "randombytes": "^2.1.0",
-    "sha3": "^2.1.4"
+    "@theqrl/mldsa87": "^0.2.0",
+    "randombytes": "^2.1.0"
   },
   "directories": {
     "lib": "src",
     "test": "test"
   },
   "files": [
+    "dist",
     "src",
     "types"
   ],
@@ -31,14 +42,15 @@
     "@types/node": "^20.14.12",
     "c8": "^7.13.0",
     "chai": "^4.3.7",
-    "codecov": "^3.8.3",
     "eslint": "^8.37.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-prettier": "^4.2.1",
+    "fast-check": "^4.5.3",
     "mocha": "^10.2.0",
     "prettier": "^2.8.7",
+    "rollup": "^4.55.1",
     "typescript": "^5.5.4"
   }
 }

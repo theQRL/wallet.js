@@ -3,8 +3,8 @@
  * @module /wallet/ml_dsa_87/descriptor
  */
 
-const { Descriptor, getDescriptorBytes } = require('../common/descriptor.js');
-const { WalletType } = require('../common/wallettype.js');
+import { Descriptor, getDescriptorBytes } from '../common/descriptor.js';
+import { WalletType } from '../common/wallettype.js';
 
 /**
  * New ML-DSA-87 descriptor with optional 2-byte metadata.
@@ -15,6 +15,4 @@ function newMLDSA87Descriptor(metadata = [0, 0]) {
   return new Descriptor(getDescriptorBytes(WalletType.ML_DSA_87, metadata));
 }
 
-module.exports = {
-  newMLDSA87Descriptor,
-};
+export { newMLDSA87Descriptor };

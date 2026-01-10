@@ -3,7 +3,7 @@
  * @module wallet/misc/mnemonic
  */
 
-const { WordList } = require('../../qrl/wordlist.js');
+import { WordList } from '../../qrl/wordlist.js';
 
 const WORD_LOOKUP = WordList.reduce((acc, word, i) => {
   acc[word] = i;
@@ -74,7 +74,4 @@ function mnemonicToBin(mnemonic) {
   return result;
 }
 
-module.exports = {
-  mnemonicToBin,
-  binToMnemonic,
-};
+export { mnemonicToBin, binToMnemonic };

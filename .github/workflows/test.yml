@@ -7,22 +7,53 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - run: npm ci
+      - run: npm run lint-check
 
+  test:
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [18.x, 20.x, 22.x]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
       - run: npm test
-      - run: npm run report-coverage 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+
+  coverage:
+    name: Coverage
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !contains( github.event.head_commit.message, 'Merge pull request')) }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - run: npm ci
+      - run: npm run report-coverage
+      - name: Upload coverage to Codecov
+        if: github.repository == 'theQRL/wallet.js'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.lcov
+          flags: wallet
+          fail_ci_if_error: true

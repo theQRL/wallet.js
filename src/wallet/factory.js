@@ -3,15 +3,17 @@
  * @module wallet/factory
  */
 
-const { isHexLike } = require('../utils/bytes.js');
-const { ExtendedSeed } = require('./common/seed.js');
-const { Wallet: MLDSA87 } = require('./ml_dsa_87/wallet.js');
+import { isHexLike } from '../utils/bytes.js';
+import { ExtendedSeed } from './common/seed.js';
+import { WalletType } from './common/wallettype.js';
+import { Wallet as MLDSA87 } from './ml_dsa_87/wallet.js';
 
 /**
  * Construct a wallet from an ExtendedSeed by auto-selecting the correct implementation.
  *
  * @param {ExtendedSeed|Uint8Array|string} extendedSeed - ExtendedSeed instance, 51 bytes or hex string.
- * @returns {any} Wallet instance (only ML-DSA-87 for now)
+ * @returns {MLDSA87} Wallet instance
+ * @throws {Error} If wallet type is unsupported
  */
 function newWalletFromExtendedSeed(extendedSeed) {
   let ext;
@@ -25,11 +27,13 @@ function newWalletFromExtendedSeed(extendedSeed) {
 
   const desc = ext.getDescriptor();
   switch (desc.type()) {
-    default:
+    case WalletType.ML_DSA_87:
       return MLDSA87.newWalletFromExtendedSeed(ext);
+    // case WalletType.SPHINCSPLUS_256S:
+    //   Not yet implemented - reserved for future use
+    default:
+      throw new Error(`Unsupported wallet type: ${desc.type()}`);
   }
 }
 
-module.exports = {
-  newWalletFromExtendedSeed,
-};
+export { newWalletFromExtendedSeed };

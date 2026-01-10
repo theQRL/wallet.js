@@ -1,9 +1,9 @@
-const { expect } = require('chai');
-const { hexToBytes } = require('@noble/hashes/utils');
-const { newWalletFromExtendedSeed } = require('../../src/wallet/factory.js');
-const { walletTestCases } = require('../fixtures/ml_dsa_87.fixtures.js');
-const { Wallet: MLDSA87 } = require('../../src/wallet/ml_dsa_87/wallet.js');
-const { ExtendedSeed } = require('../../src/wallet/common/seed.js');
+import { expect } from 'chai';
+import { hexToBytes } from '@noble/hashes/utils';
+import { newWalletFromExtendedSeed } from '../../src/wallet/factory.js';
+import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
+import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
+import { ExtendedSeed } from '../../src/wallet/common/seed.js';
 
 describe('wallet/factory', () => {
   const tc = walletTestCases[0];

@@ -4,13 +4,13 @@
  */
 
 /** @typedef {import('../common/descriptor.js').Descriptor} Descriptor */
-const randomBytes = require('randombytes');
-const { bytesToHex } = require('@noble/hashes/utils.js');
-const { mnemonicToBin, binToMnemonic } = require('../misc/mnemonic.js');
-const { getAddressFromPKAndDescriptor, addressToString } = require('../common/address.js');
-const { Seed, ExtendedSeed } = require('../common/seed.js');
-const { newMLDSA87Descriptor } = require('./descriptor.js');
-const { keygen, sign, verify } = require('./crypto.js');
+import randomBytes from 'randombytes';
+import { bytesToHex } from '@noble/hashes/utils.js';
+import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
+import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
+import { Seed, ExtendedSeed } from '../common/seed.js';
+import { newMLDSA87Descriptor } from './descriptor.js';
+import { keygen, sign, verify } from './crypto.js';
 
 class Wallet {
   /**
@@ -133,8 +133,26 @@ class Wallet {
   static verify(signature, message, pk) {
     return verify(signature, message, pk);
   }
+
+  /**
+   * Securely zeroize sensitive key material.
+   * Call this when the wallet is no longer needed to minimize
+   * the window where secrets exist in memory.
+   *
+   * Note: JavaScript garbage collection may retain copies;
+   * this provides best-effort zeroization.
+   */
+  zeroize() {
+    if (this.sk) {
+      this.sk.fill(0);
+    }
+    if (this.seed && this.seed.bytes) {
+      this.seed.bytes.fill(0);
+    }
+    if (this.extendedSeed && this.extendedSeed.bytes) {
+      this.extendedSeed.bytes.fill(0);
+    }
+  }
 }
 
-module.exports = {
-  Wallet,
-};
+export { Wallet };

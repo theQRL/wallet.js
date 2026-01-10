@@ -1,5 +1,5 @@
-const { expect } = require('chai');
-const { binToMnemonic, mnemonicToBin } = require('../../src/wallet/misc/mnemonic.js');
+import { expect } from 'chai';
+import { binToMnemonic, mnemonicToBin } from '../../src/wallet/misc/mnemonic.js';
 
 describe('wallet/misc/mnemonic', () => {
   describe('binToMnemonic', () => {

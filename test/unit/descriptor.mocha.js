@@ -1,7 +1,7 @@
-const { expect } = require('chai');
-const { Descriptor, getDescriptorBytes } = require('../../src/wallet/common/descriptor.js');
-const { DESCRIPTOR_SIZE } = require('../../src/wallet/common/constants.js');
-const { WalletType } = require('../../src/wallet/common/wallettype.js');
+import { expect } from 'chai';
+import { Descriptor, getDescriptorBytes } from '../../src/wallet/common/descriptor.js';
+import { DESCRIPTOR_SIZE } from '../../src/wallet/common/constants.js';
+import { WalletType } from '../../src/wallet/common/wallettype.js';
 
 describe('wallet/common/descriptor', () => {
   it('constructs from bytes', () => {

@@ -4,20 +4,13 @@
  */
 
 /** @type {number} Size in bytes of the 3-byte descriptor */
-const DESCRIPTOR_SIZE = 3;
+export const DESCRIPTOR_SIZE = 3;
 
 /** @type {number} Address length in bytes */
-const ADDRESS_SIZE = 20;
+export const ADDRESS_SIZE = 20;
 
 /** @type {number} Seed length in bytes */
-const SEED_SIZE = 48;
+export const SEED_SIZE = 48;
 
 /** @type {number} Extended seed length in bytes */
-const EXTENDED_SEED_SIZE = DESCRIPTOR_SIZE + SEED_SIZE;
-
-module.exports = {
-  DESCRIPTOR_SIZE,
-  ADDRESS_SIZE,
-  SEED_SIZE,
-  EXTENDED_SEED_SIZE,
-};
+export const EXTENDED_SEED_SIZE = DESCRIPTOR_SIZE + SEED_SIZE;

@@ -3,16 +3,21 @@
  * @module index
  */
 
-const { DESCRIPTOR_SIZE, EXTENDED_SEED_SIZE, SEED_SIZE } = require('./wallet/common/constants.js');
-const { getAddressFromPKAndDescriptor } = require('./wallet/common/address.js');
-const { ExtendedSeed, Seed } = require('./wallet/common/seed.js');
-const { newMLDSA87Descriptor } = require('./wallet/ml_dsa_87/descriptor.js');
-const { Descriptor } = require('./wallet/common/descriptor.js');
-const { newWalletFromExtendedSeed } = require('./wallet/factory.js');
-const { Wallet: MLDSA87 } = require('./wallet/ml_dsa_87/wallet.js');
-const { WalletType } = require('./wallet/common/wallettype.js');
+import { DESCRIPTOR_SIZE, EXTENDED_SEED_SIZE, SEED_SIZE } from './wallet/common/constants.js';
+import {
+  getAddressFromPKAndDescriptor,
+  stringToAddress,
+  isValidAddress,
+  addressToString,
+} from './wallet/common/address.js';
+import { ExtendedSeed, Seed } from './wallet/common/seed.js';
+import { newMLDSA87Descriptor } from './wallet/ml_dsa_87/descriptor.js';
+import { Descriptor } from './wallet/common/descriptor.js';
+import { newWalletFromExtendedSeed } from './wallet/factory.js';
+import { Wallet as MLDSA87 } from './wallet/ml_dsa_87/wallet.js';
+import { WalletType } from './wallet/common/wallettype.js';
 
-module.exports = {
+export {
   Seed,
   SEED_SIZE,
   ExtendedSeed,
@@ -21,6 +26,9 @@ module.exports = {
   DESCRIPTOR_SIZE,
   newMLDSA87Descriptor,
   getAddressFromPKAndDescriptor,
+  addressToString,
+  stringToAddress,
+  isValidAddress,
   WalletType,
   newWalletFromExtendedSeed,
   MLDSA87,

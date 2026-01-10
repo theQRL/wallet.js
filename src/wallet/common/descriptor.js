@@ -5,9 +5,9 @@
  * @module wallet/common/descriptor
  */
 
-const { DESCRIPTOR_SIZE } = require('./constants.js');
-const { isValidWalletType } = require('./wallettype.js');
-const { toFixedU8 } = require('../../utils/bytes.js');
+import { DESCRIPTOR_SIZE } from './constants.js';
+import { isValidWalletType } from './wallettype.js';
+import { toFixedU8 } from '../../utils/bytes.js';
 
 class Descriptor {
   /**
@@ -67,7 +67,4 @@ function getDescriptorBytes(walletType, metadata = [0, 0]) {
   return out;
 }
 
-module.exports = {
-  Descriptor,
-  getDescriptorBytes,
-};
+export { Descriptor, getDescriptorBytes };

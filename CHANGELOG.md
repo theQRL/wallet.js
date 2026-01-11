@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/theQRL/wallet.js/compare/v0.2.1...v0.2.2) (2026-01-11)
+
+
+### Bug Fixes
+
+* add repository info to package.json ([c1d4b6c](https://github.com/theQRL/wallet.js/commit/c1d4b6ce3bfa0a1d64726cabf27640c0bba09dfa))
+
 ## [0.2.1](https://github.com/theQRL/wallet.js/compare/v0.2.0...v0.2.1) (2026-01-11)
 
 

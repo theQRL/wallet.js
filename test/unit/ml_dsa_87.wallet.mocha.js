@@ -47,6 +47,23 @@ describe('ML-DSA-87 Wallet', () => {
     expect(desc.toBytes().length).to.equal(DESCRIPTOR_SIZE);
   });
 
+  it('returns defensive copies for descriptor/seed/extendedSeed', () => {
+    const tc = walletTestCases[0];
+    const w = createWalletFromExtendedSeed(tc);
+
+    const seedCopy = w.getSeed();
+    seedCopy.bytes[0] ^= 0xff;
+    expect(bytesToHex(w.getSeed().toBytes())).to.equal(tc.extendedSeed.slice(DESCRIPTOR_SIZE * 2));
+
+    const extCopy = w.getExtendedSeed();
+    extCopy.bytes[0] ^= 0xff;
+    expect(bytesToHex(w.getExtendedSeed().toBytes())).to.equal(tc.extendedSeed);
+
+    const descCopy = w.getDescriptor();
+    descCopy.bytes[0] ^= 0xff;
+    expect(w.getDescriptor().type()).to.equal(1);
+  });
+
   describe('Seed bytes equal extendedSeed sans 3-byte descriptor', () => {
     Object.entries(walletCreators).forEach(([creatorName, creator]) => {
       walletTestCases.forEach((tc) => {

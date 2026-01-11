@@ -40,7 +40,7 @@ jobs:
       - name: Verify wallet.js signature with go-qrllib
         run: |
           echo "=== Verifying wallet.js ML-DSA-87 signature with go-qrllib ==="
-          cd .github/cross-verify && go run wallet_verify.go
+          cd /tmp/go-qrllib && go run "$GITHUB_WORKSPACE/.github/cross-verify/wallet_verify.go"
           echo "wallet.js -> go-qrllib: PASSED"
 
       - name: Generate go-qrllib ML-DSA-87 signature

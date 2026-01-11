@@ -3,13 +3,12 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/theQRL/go-qrllib/crypto"
+	"github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
 )
 
 type WalletOutput struct {
@@ -29,20 +28,19 @@ const (
 func main() {
 	seedBytes, _ := hex.DecodeString(testSeedHex)
 
-	// Derive keypair using SHA256 of seed (matching wallet.js)
-	seedHash := sha256.Sum256(seedBytes)
-	pk, sk := crypto.MLDSA87KeyGen(seedHash[:])
+	// Create ML-DSA-87 instance from seed (matching wallet.js)
+	mldsa := ml_dsa_87.NewMLDSA87FromSeed(seedBytes)
 
 	// Sign message
 	message := []byte(testMessage)
-	signature := crypto.MLDSA87Sign(sk, message)
+	signature := mldsa.Sign(message)
 
 	// Generate address (SHAKE256 of descriptor + pk)
 	// Note: This would need the actual address derivation logic from go-qrllib
 	// For now, we output what we have
 	output := WalletOutput{
 		Seed:       testSeedHex,
-		PublicKey:  hex.EncodeToString(pk),
+		PublicKey:  hex.EncodeToString(mldsa.GetPK()),
 		Address:    "TODO: derive address",
 		Message:    testMessage,
 		MessageHex: hex.EncodeToString(message),

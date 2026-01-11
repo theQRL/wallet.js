@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/theQRL/go-qrllib/crypto"
+	"github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
 )
 
 type WalletOutput struct {
@@ -41,7 +41,7 @@ func main() {
 	fmt.Printf("  Address: %s\n", output.Address)
 	fmt.Printf("  Message: %s\n", output.Message)
 
-	isValid := crypto.MLDSA87Verify(signature, message, publicKey)
+	isValid := ml_dsa_87.Verify(signature, message, publicKey)
 
 	if isValid {
 		fmt.Println("PASSED: wallet.js signature verified successfully")

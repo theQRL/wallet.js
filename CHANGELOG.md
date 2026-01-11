@@ -1,0 +1,15 @@
+# [0.2.0](https://github.com/theQRL/wallet.js/compare/v0.1.3...v0.2.0) (2026-01-11)
+
+
+### Bug Fixes
+
+* automated releases ([ae989aa](https://github.com/theQRL/wallet.js/commit/ae989aa658ac416b9bcbda0ebd5f3baee22773db))
+* cross-verify corrections ([db5f9e7](https://github.com/theQRL/wallet.js/commit/db5f9e7abd23a086a4d8c86535f428a731f7bd64))
+* cross-verify go calls ([8b9b373](https://github.com/theQRL/wallet.js/commit/8b9b37387625ea7702a5233c52043d7a6453bee0))
+* cross-verify go location ([911de55](https://github.com/theQRL/wallet.js/commit/911de557a3c98cc2817760d8153656366916537a))
+* use ESM in cross-verify scripts ([2c7973c](https://github.com/theQRL/wallet.js/commit/2c7973c3b85fb12aa3efc5659e24fb91aba8966e))
+
+
+### Features
+
+* automatically release via semantic-release ([fbb3147](https://github.com/theQRL/wallet.js/commit/fbb3147234a51cbe60215cb921b5d0d062e5d1ef))

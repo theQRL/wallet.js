@@ -24,6 +24,10 @@
   },
   "author": "QRL contributors <info@theqrl.org> (https://theqrl.org)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theQRL/wallet.js"
+  },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
     "@theqrl/mldsa87": "^1.0.3",

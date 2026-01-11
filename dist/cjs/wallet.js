@@ -1,3 +1,397 @@
+'use strict';
+
+var sha3 = require('@noble/hashes/sha3');
+var mldsa87 = require('@theqrl/mldsa87');
+var sha2_js = require('@noble/hashes/sha2.js');
+var utils = require('@noble/hashes/utils');
+var randomBytes = require('randombytes');
+var utils_js = require('@noble/hashes/utils.js');
+
+/**
+ * Constants used across wallet components.
+ * @module wallet/common/constants
+ */
+
+/** @type {number} Size in bytes of the 3-byte descriptor */
+const DESCRIPTOR_SIZE = 3;
+
+/** @type {number} Address length in bytes */
+const ADDRESS_SIZE = 20;
+
+/** @type {number} Seed length in bytes */
+const SEED_SIZE = 48;
+
+/** @type {number} Extended seed length in bytes */
+const EXTENDED_SEED_SIZE = DESCRIPTOR_SIZE + SEED_SIZE;
+
+/**
+ * Address helpers.
+ * @module wallet/common/address
+ */
+
+
+/**
+ * Convert address bytes to string form.
+ * @param {Uint8Array} addrBytes
+ * @returns {string}
+ * @throws {Error} If length mismatch.
+ */
+function addressToString(addrBytes) {
+  if (!addrBytes || addrBytes.length !== ADDRESS_SIZE) {
+    throw new Error(`address must be ${ADDRESS_SIZE} bytes`);
+  }
+  const hex = [...addrBytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `Q${hex}`;
+}
+
+/**
+ * Convert address string to bytes.
+ * @param {string} addrStr - Address string starting with 'Q' followed by 40 hex characters.
+ * @returns {Uint8Array} 20-byte address.
+ * @throws {Error} If address format is invalid.
+ */
+function stringToAddress(addrStr) {
+  if (typeof addrStr !== 'string') {
+    throw new Error('address must be a string');
+  }
+  const trimmed = addrStr.trim();
+  if (!trimmed.startsWith('Q') && !trimmed.startsWith('q')) {
+    throw new Error('address must start with Q');
+  }
+  const hex = trimmed.slice(1);
+  if (hex.length !== ADDRESS_SIZE * 2) {
+    throw new Error(`address must be Q + ${ADDRESS_SIZE * 2} hex characters, got ${hex.length}`);
+  }
+  if (!/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new Error('address contains invalid characters');
+  }
+  const bytes = new Uint8Array(ADDRESS_SIZE);
+  for (let i = 0; i < ADDRESS_SIZE; i += 1) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Check if a string is a valid QRL address format.
+ * @param {string} addrStr - Address string to validate.
+ * @returns {boolean} True if valid address format.
+ */
+function isValidAddress(addrStr) {
+  try {
+    stringToAddress(addrStr);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Derive an address from a public key and descriptor.
+ * @param {Uint8Array} pk
+ * @param {Descriptor} descriptor
+ * @returns {Uint8Array} 20-byte address.
+ * @throws {Error} If pk length mismatch.
+ */
+function getAddressFromPKAndDescriptor(pk, descriptor) {
+  if (!(pk instanceof Uint8Array)) throw new Error('pk must be Uint8Array');
+
+  const walletType = descriptor.type();
+  let expectedPKLen;
+  switch (walletType) {
+    default:
+      expectedPKLen = mldsa87.CryptoPublicKeyBytes;
+  }
+  if (pk.length !== expectedPKLen) {
+    throw new Error(`pk must be ${expectedPKLen} bytes for wallet type ${walletType}`);
+  }
+
+  const descBytes = descriptor.toBytes();
+  const input = new Uint8Array(descBytes.length + pk.length);
+  input.set(descBytes, 0);
+  input.set(pk, descBytes.length);
+  return sha3.shake256.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
+}
+
+/**
+ * Shared byte/hex utils used across modules.
+ * @module utils/bytes
+ */
+
+
+/**
+ * @param {unknown} input
+ * @returns {boolean}
+ */
+function isUint8(input) {
+  return input instanceof Uint8Array;
+}
+
+/**
+ * Accepts strings with optional 0x/0X prefix and separators(space, :, _, -).
+ * @param {unknown} input
+ * @returns {boolean}
+ */
+function isHexLike(input) {
+  if (typeof input !== 'string') return false;
+  const s = input.trim().replace(/^0x/i, '');
+  return /^[0-9a-fA-F\s:_-]*$/.test(s);
+}
+
+/**
+ * Remove 0x prefix and all non-hex chars.
+ * @param {string} hex
+ * @returns {string}
+ */
+function cleanHex(hex) {
+  return hex.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
+}
+
+/**
+ * Convert various inputs to a fixed-length byte array.
+ * Supports hex string(with/without 0x), Uint8Array, Buffer, number[].
+ * @param {string|Uint8Array|Buffer|number[]} input
+ * @param {number} expectedLen
+ * @param {string} [label='bytes']
+ * @returns {Uint8Array}
+ */
+function toFixedU8(input, expectedLen, label = 'bytes') {
+  let bytes;
+  if (isUint8(input)) {
+    bytes = new Uint8Array(input);
+  } else if (isHexLike(input)) {
+    bytes = utils.hexToBytes(cleanHex(input));
+  } else if (Array.isArray(input)) {
+    bytes = Uint8Array.from(input);
+  } else {
+    throw new Error(`${label}: unsupported input type; pass hex string or Uint8Array/Buffer`);
+  }
+  if (bytes.length !== expectedLen) {
+    throw new Error(`${label}: expected ${expectedLen} bytes, got ${bytes.length}`);
+  }
+  return bytes;
+}
+
+/**
+ * Wallet type enumeration.
+ * @module wallet/common/wallettype
+ */
+
+/**
+ * @readonly
+ * @enum {number}
+ */
+const WalletType = Object.freeze({
+  SPHINCSPLUS_256S: 0,
+  ML_DSA_87: 1,
+});
+
+/**
+ * @param {number} t
+ * @return {boolean}
+ */
+function isValidWalletType(t) {
+  return t === WalletType.ML_DSA_87;
+}
+
+/**
+ * 3-byte descriptor for a wallet:
+ *  - byte 0: wallet type (e.g. ML_DSA_87)
+ *  - bytes 1..2: 2 bytes metadata
+ * @module wallet/common/descriptor
+ */
+
+
+class Descriptor {
+  /**
+   * @param {Uint8Array|number[]} bytes Must be exactly 3 bytes.
+   * @throws {Error} If size is not 3 or wallet type is invalid.
+   */
+  constructor(bytes) {
+    if (!bytes || bytes.length !== DESCRIPTOR_SIZE) {
+      throw new Error(`Descriptor must be ${DESCRIPTOR_SIZE} bytes`);
+    }
+    /** @private @type {Uint8Array} */
+    this.bytes = Uint8Array.from(bytes);
+    if (!isValidWalletType(this.bytes[0])) {
+      throw new Error('Invalid wallet type in descriptor');
+    }
+  }
+
+  /**
+   * @returns {number}
+   */
+  type() {
+    return this.bytes[0] >>> 0;
+  }
+
+  /**
+   * Copy of internal bytes.
+   * @returns {Uint8Array}
+   */
+  toBytes() {
+    return this.bytes.slice();
+  }
+
+  /**
+   * Constructor: accepts hex string / Uint8Array / Buffer / number[].
+   * @param {string|Uint8Array|Buffer|number[]} input
+   * @returns {Descriptor}
+   */
+  static from(input) {
+    return new Descriptor(toFixedU8(input, DESCRIPTOR_SIZE, 'Descriptor'));
+  }
+}
+
+/**
+ * Build descriptor bytes from parts.
+ * @param {number} walletType byte.
+ * @param {[number, number]} [metadata=[0,0]] Two metadata bytes.
+ * @returns {Uint8Array} 3 bytes.
+ */
+function getDescriptorBytes(walletType, metadata = [0, 0]) {
+  if (!isValidWalletType(walletType)) {
+    throw new Error('Invalid wallet type in descriptor');
+  }
+  const out = new Uint8Array(DESCRIPTOR_SIZE);
+  out[0] = walletType >>> 0;
+  out[1] = (metadata?.[0] ?? 0) >>> 0;
+  out[2] = (metadata?.[1] ?? 0) >>> 0;
+  return out;
+}
+
+/**
+ * Seed(48 bytes) and ExtendedSeed(51 bytes) with constructors.
+ * @module wallet/common/seed
+ */
+
+
+class Seed {
+  /**
+   * @param {Uint8Array} bytes Exactly 48 bytes.
+   * @throws {Error} If size mismatch.
+   */
+  constructor(bytes) {
+    if (!bytes || bytes.length !== SEED_SIZE) {
+      throw new Error(`Seed must be ${SEED_SIZE} bytes`);
+    }
+    this.bytes = Uint8Array.from(bytes);
+  }
+
+  /** @returns {Uint8Array} */
+  hashSHA256() {
+    return Uint8Array.from(sha2_js.sha256(this.bytes));
+  }
+
+  /**
+   * Copy of internal seed bytes.
+   * @returns {Uint8Array}
+   */
+  toBytes() {
+    return this.bytes.slice();
+  }
+
+  /**
+   * Constructor: accepts hex string / Uint8Array / Buffer / number[].
+   * @param {string|Uint8Array|Buffer|number[]} input
+   * @returns {Seed}
+   */
+  static from(input) {
+    return new Seed(toFixedU8(input, SEED_SIZE, 'Seed'));
+  }
+}
+
+class ExtendedSeed {
+  /**
+   * Layout: [3 bytes descriptor] || [48 bytes seed].
+   * @param {Uint8Array} bytes Exactly 51 bytes.
+   * @throws {Error} If size mismatch.
+   */
+  constructor(bytes) {
+    if (!bytes || bytes.length !== EXTENDED_SEED_SIZE) {
+      throw new Error(`ExtendedSeed must be ${EXTENDED_SEED_SIZE} bytes`);
+    }
+    /** @private @type {Uint8Array} */
+    this.bytes = Uint8Array.from(bytes);
+    if (!isValidWalletType(this.bytes[0])) {
+      throw new Error('Invalid wallet type in descriptor');
+    }
+  }
+
+  /**
+   * @returns {Descriptor}
+   */
+  getDescriptor() {
+    return new Descriptor(this.getDescriptorBytes());
+  }
+
+  /**
+   * @returns {Uint8Array} Descriptor(3 bytes).
+   */
+  getDescriptorBytes() {
+    return this.bytes.slice(0, DESCRIPTOR_SIZE);
+  }
+
+  /**
+   * @returns {Uint8Array} Seed bytes(48 bytes).
+   */
+  getSeedBytes() {
+    return this.bytes.slice(DESCRIPTOR_SIZE);
+  }
+
+  /**
+   * @returns {Seed}
+   */
+  getSeed() {
+    return new Seed(this.getSeedBytes());
+  }
+
+  /**
+   * Copy of internal seed bytes.
+   * @returns {Uint8Array}
+   */
+  toBytes() {
+    return this.bytes.slice();
+  }
+
+  /**
+   * Build from components.
+   * @param {Descriptor} desc
+   * @param {Seed} seed
+   * @returns {ExtendedSeed}
+   */
+  static newExtendedSeed(desc, seed) {
+    const out = new Uint8Array(EXTENDED_SEED_SIZE);
+    out.set(desc.toBytes(), 0);
+    out.set(seed.toBytes(), DESCRIPTOR_SIZE);
+    return new ExtendedSeed(out);
+  }
+
+  /**
+   * Constructor: accepts hex string / Uint8Array / Buffer / number[].
+   * @param {string|Uint8Array|Buffer|number[]} input
+   * @returns {ExtendedSeed}
+   */
+  static from(input) {
+    return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'));
+  }
+}
+
+/**
+ * ML-DSA-87-specific descriptor helpers.
+ * @module /wallet/ml_dsa_87/descriptor
+ */
+
+
+/**
+ * New ML-DSA-87 descriptor with optional 2-byte metadata.
+ * @param {[number, number]} [metadata=[0,0]]
+ * @returns {Descriptor}
+ */
+function newMLDSA87Descriptor(metadata = [0, 0]) {
+  return new Descriptor(getDescriptorBytes(WalletType.ML_DSA_87, metadata));
+}
+
 /**
  * Mnemonic word list used by encoding/decoding utilities.
  * @module qrl/wordlist
@@ -8,7 +402,7 @@
  * @readonly
  * @type {string[]}
  */
-export const WordList = [
+const WordList = [
   'aback',
   'abbey',
   'abbot',
@@ -4106,3 +4500,357 @@ export const WordList = [
   'zone',
   'zurich',
 ];
+
+/**
+ * Minimal mnemonic adapters.
+ * @module wallet/misc/mnemonic
+ */
+
+
+const WORD_LOOKUP = WordList.reduce((acc, word, i) => {
+  acc[word] = i;
+  return acc;
+}, Object.create(null));
+
+/**
+ * Encode bytes to a spaced hex mnemonic string.
+ * @param {Uint8Array} input
+ * @returns {string}
+ */
+function binToMnemonic(input) {
+  if (input.length % 3 !== 0) {
+    throw new Error('byte count needs to be a multiple of 3');
+  }
+
+  const words = [];
+  for (let nibble = 0; nibble < input.length * 2; nibble += 3) {
+    const p = nibble >> 1;
+    const b1 = input[p];
+    const b2 = p + 1 < input.length ? input[p + 1] : 0;
+    const idx = nibble % 2 === 0 ? (b1 << 4) + (b2 >> 4) : ((b1 & 0x0f) << 8) + b2;
+
+    if (idx >= WordList.length) {
+      throw new Error('mnemonic index out of range');
+    }
+    words.push(WordList[idx]);
+  }
+
+  return words.join(' ');
+}
+
+/**
+ * Decode spaced hex mnemonic to bytes.
+ * @param {string} mnemonic
+ * @returns {Uint8Array}
+ */
+function mnemonicToBin(mnemonic) {
+  const mnemonicWords = mnemonic.trim().toLowerCase().split(/\s+/);
+  if (mnemonicWords.length % 2 !== 0) throw new Error('word count must be even');
+
+  const result = new Uint8Array((mnemonicWords.length * 15) / 10);
+  let current = 0;
+  let buffering = 0;
+  let resultIndex = 0;
+
+  for (let i = 0; i < mnemonicWords.length; i += 1) {
+    const w = mnemonicWords[i];
+    const value = WORD_LOOKUP[w];
+    if (value === undefined) throw new Error('invalid word in mnemonic');
+
+    buffering += 3;
+    current = (current << 12) + value;
+    for (; buffering > 2; ) {
+      const shift = 4 * (buffering - 2);
+      const mask = (1 << shift) - 1;
+      const tmp = current >> shift;
+      buffering -= 2;
+      current &= mask;
+      result[resultIndex++] = tmp;
+    }
+  }
+
+  if (buffering > 0) {
+    result[resultIndex++] = current & 0xff;
+  }
+
+  return result;
+}
+
+/**
+ * @module wallet/ml_dsa_87/crypto
+ */
+
+
+/**
+ * Generate a keypair.
+ * @returns {{ pk: Uint8Array, sk: Uint8Array }}
+ */
+function keygen(seed) {
+  const pk = new Uint8Array(mldsa87.CryptoPublicKeyBytes);
+  const sk = new Uint8Array(mldsa87.CryptoSecretKeyBytes);
+  const seedBytes = new Uint8Array(seed.hashSHA256());
+  mldsa87.cryptoSignKeypair(seedBytes, pk, sk);
+  return { pk, sk };
+}
+
+/**
+ * Check if input is a valid byte array (Uint8Array or Buffer).
+ * @param {unknown} input
+ * @returns {boolean}
+ */
+function isBytes(input) {
+  return input instanceof Uint8Array;
+}
+
+/**
+ * Sign a message.
+ * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes bytes)
+ * @param {Uint8Array} message - Message to sign
+ * @returns {Uint8Array} signature
+ * @throws {Error} If sk or message is invalid
+ */
+function sign(sk, message) {
+  if (!isBytes(sk)) {
+    throw new Error('sk must be Uint8Array or Buffer');
+  }
+  if (sk.length !== mldsa87.CryptoSecretKeyBytes) {
+    throw new Error(`sk must be ${mldsa87.CryptoSecretKeyBytes} bytes, got ${sk.length}`);
+  }
+  if (!isBytes(message)) {
+    throw new Error('message must be Uint8Array or Buffer');
+  }
+
+  const sm = mldsa87.cryptoSign(message, sk);
+  let signature = new Uint8Array(mldsa87.CryptoBytes);
+  signature = sm.slice(0, mldsa87.CryptoBytes);
+  return signature;
+}
+
+/**
+ * Verify a signature.
+ * @param {Uint8Array} signature - Signature to verify (must be CryptoBytes bytes)
+ * @param {Uint8Array} message - Original message
+ * @param {Uint8Array} pk - Public key (must be CryptoPublicKeyBytes bytes)
+ * @returns {boolean}
+ * @throws {Error} If signature, message, or pk is invalid
+ */
+function verify(signature, message, pk) {
+  if (!isBytes(signature)) {
+    throw new Error('signature must be Uint8Array or Buffer');
+  }
+  if (signature.length !== mldsa87.CryptoBytes) {
+    throw new Error(`signature must be ${mldsa87.CryptoBytes} bytes, got ${signature.length}`);
+  }
+  if (!isBytes(message)) {
+    throw new Error('message must be Uint8Array or Buffer');
+  }
+  if (!isBytes(pk)) {
+    throw new Error('pk must be Uint8Array or Buffer');
+  }
+  if (pk.length !== mldsa87.CryptoPublicKeyBytes) {
+    throw new Error(`pk must be ${mldsa87.CryptoPublicKeyBytes} bytes, got ${pk.length}`);
+  }
+
+  const sigBytes = new Uint8Array(signature);
+  const msgBytes = new Uint8Array(message);
+  const pkBytes = new Uint8Array(pk);
+  return mldsa87.cryptoSignVerify(sigBytes, msgBytes, pkBytes);
+}
+
+/**
+ * ML-DSA-87 Wallet object encapsulating descriptor, seeds and keypair.
+ * @module wallet/ml_dsa_87/wallet
+ */
+
+
+class Wallet {
+  /**
+   * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
+   */
+  constructor({ descriptor, seed, pk, sk }) {
+    this.descriptor = descriptor;
+    this.seed = seed;
+    this.pk = pk;
+    this.sk = sk;
+    this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
+  }
+
+  /**
+   * Create a new random wallet(non-deterministic).
+   * @param {[number, number]} [metadata=[0,0] ]
+   * @returns {Wallet}
+   */
+  static newWallet(metadata = [0, 0]) {
+    const descriptor = newMLDSA87Descriptor(metadata);
+    const seedBytes = randomBytes(48);
+    const seed = new Seed(seedBytes);
+    const { pk, sk } = keygen(seed);
+    return new Wallet({ descriptor, seed, pk, sk });
+  }
+
+  /**
+   * @param {Seed} seed
+   * @param {[number, number]} [metadata=[0,0]]
+   * @returns {Wallet}
+   */
+  static newWalletFromSeed(seed, metadata = [0, 0]) {
+    const descriptor = newMLDSA87Descriptor(metadata);
+    const { pk, sk } = keygen(seed);
+    return new Wallet({ descriptor, seed, pk, sk });
+  }
+
+  /**
+   * @param {ExtendedSeed} extendedSeed
+   * @returns {Wallet}
+   */
+  static newWalletFromExtendedSeed(extendedSeed) {
+    const descriptor = extendedSeed.getDescriptor();
+    const seed = extendedSeed.getSeed();
+    const { pk, sk } = keygen(seed);
+    return new Wallet({ descriptor, seed, pk, sk });
+  }
+
+  /**
+   * @param {string} mnemonic
+   * @returns {Wallet}
+   */
+  static newWalletFromMnemonic(mnemonic) {
+    const bin = mnemonicToBin(mnemonic);
+    const extendedSeed = new ExtendedSeed(bin);
+    return this.newWalletFromExtendedSeed(extendedSeed);
+  }
+
+  /** @returns {Uint8Array} */
+  getAddress() {
+    return getAddressFromPKAndDescriptor(this.pk, this.descriptor);
+  }
+
+  /** @returns {string} */
+  getAddressStr() {
+    return addressToString(this.getAddress());
+  }
+
+  /** @returns {Descriptor} */
+  getDescriptor() {
+    return this.descriptor;
+  }
+
+  /** @returns {ExtendedSeed} */
+  getExtendedSeed() {
+    return this.extendedSeed;
+  }
+
+  /** @returns {Seed} */
+  getSeed() {
+    return this.seed;
+  }
+
+  /** @returns {string} hex(ExtendedSeed) */
+  getHexExtendedSeed() {
+    return `0x${utils_js.bytesToHex(this.extendedSeed.toBytes())}`;
+  }
+
+  /** @returns {string} */
+  getMnemonic() {
+    return binToMnemonic(this.getExtendedSeed().toBytes());
+  }
+
+  /** @returns {Uint8Array} */
+  getPK() {
+    return this.pk.slice();
+  }
+
+  /** @returns {Uint8Array} */
+  getSK() {
+    return this.sk.slice();
+  }
+
+  /**
+   * Sign a message.
+   * @param {Uint8Array} message
+   * @returns {Uint8Array} Signature bytes.
+   */
+  sign(message) {
+    return sign(this.sk, message);
+  }
+
+  /**
+   * Verify a signature.
+   * @param {Uint8Array} signature
+   * @param {Uint8Array} message
+   * @param {Uint8Array} pk
+   * @returns {boolean}
+   */
+  static verify(signature, message, pk) {
+    return verify(signature, message, pk);
+  }
+
+  /**
+   * Securely zeroize sensitive key material.
+   * Call this when the wallet is no longer needed to minimize
+   * the window where secrets exist in memory.
+   *
+   * Note: JavaScript garbage collection may retain copies;
+   * this provides best-effort zeroization.
+   */
+  zeroize() {
+    if (this.sk) {
+      this.sk.fill(0);
+    }
+    if (this.seed && this.seed.bytes) {
+      this.seed.bytes.fill(0);
+    }
+    if (this.extendedSeed && this.extendedSeed.bytes) {
+      this.extendedSeed.bytes.fill(0);
+    }
+  }
+}
+
+/**
+ * Auto-select wallet implementation based on the ExtendedSeed descriptor.
+ * @module wallet/factory
+ */
+
+
+/**
+ * Construct a wallet from an ExtendedSeed by auto-selecting the correct implementation.
+ *
+ * @param {ExtendedSeed|Uint8Array|string} extendedSeed - ExtendedSeed instance, 51 bytes or hex string.
+ * @returns {MLDSA87} Wallet instance
+ * @throws {Error} If wallet type is unsupported
+ */
+function newWalletFromExtendedSeed(extendedSeed) {
+  let ext;
+  if (extendedSeed instanceof Uint8Array || isHexLike(extendedSeed)) {
+    ext = ExtendedSeed.from(extendedSeed);
+  } else if (extendedSeed instanceof ExtendedSeed) {
+    ext = extendedSeed;
+  } else {
+    throw new Error('Unsupported extendedSeed input');
+  }
+
+  const desc = ext.getDescriptor();
+  switch (desc.type()) {
+    case WalletType.ML_DSA_87:
+      return Wallet.newWalletFromExtendedSeed(ext);
+    // case WalletType.SPHINCSPLUS_256S:
+    //   Not yet implemented - reserved for future use
+    default:
+      throw new Error(`Unsupported wallet type: ${desc.type()}`);
+  }
+}
+
+exports.DESCRIPTOR_SIZE = DESCRIPTOR_SIZE;
+exports.Descriptor = Descriptor;
+exports.EXTENDED_SEED_SIZE = EXTENDED_SEED_SIZE;
+exports.ExtendedSeed = ExtendedSeed;
+exports.MLDSA87 = Wallet;
+exports.SEED_SIZE = SEED_SIZE;
+exports.Seed = Seed;
+exports.WalletType = WalletType;
+exports.addressToString = addressToString;
+exports.getAddressFromPKAndDescriptor = getAddressFromPKAndDescriptor;
+exports.isValidAddress = isValidAddress;
+exports.newMLDSA87Descriptor = newMLDSA87Descriptor;
+exports.newWalletFromExtendedSeed = newWalletFromExtendedSeed;
+exports.stringToAddress = stringToAddress;

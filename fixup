@@ -1,0 +1,9 @@
+#!/bin/bash
+# Create package.json files for dual ESM/CJS support
+
+mkdir -p dist/cjs dist/mjs
+
+echo '{"type": "commonjs"}' > dist/cjs/package.json
+echo '{"type": "module"}' > dist/mjs/package.json
+
+echo "Created dist/cjs/package.json and dist/mjs/package.json"

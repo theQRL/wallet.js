@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/theQRL/wallet.js/compare/v1.0.0...v1.0.1) (2026-01-11)
+
+### Bug Fixes
+
+* defensive copies for descriptor/seed/extendedSeed ([72db1fa](https://github.com/theQRL/wallet.js/commit/72db1fac8ec05d8e3c6b8c41928263a069cbccfc))
+
 ## [1.0.0](https://github.com/theQRL/wallet.js/compare/v0.2.2...v1.0.0) (2026-01-11)
 
 ### ⚠ BREAKING CHANGES

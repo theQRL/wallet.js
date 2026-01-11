@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -28,23 +29,35 @@ const (
 func main() {
 	seedBytes, _ := hex.DecodeString(testSeedHex)
 
-	// Create ML-DSA-87 instance from seed (matching wallet.js)
-	mldsa := ml_dsa_87.NewMLDSA87FromSeed(seedBytes)
+	// Hash the 48-byte seed with SHA256 to get 32 bytes (matching wallet.js)
+	seedHash := sha256.Sum256(seedBytes)
 
-	// Sign message
+	// Create ML-DSA-87 instance from the 32-byte seed
+	mldsa, err := ml_dsa_87.NewMLDSA87FromSeed(seedHash)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create MLDSA87: %v\n", err)
+		os.Exit(1)
+	}
+	defer mldsa.Zeroize()
+
+	// Sign message with "ZOND" context to match wallet.js (@theqrl/mldsa87 default)
+	ctx := []byte("ZOND")
 	message := []byte(testMessage)
-	signature := mldsa.Sign(message)
+	signature, err := mldsa.Sign(ctx, message)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to sign: %v\n", err)
+		os.Exit(1)
+	}
 
-	// Generate address (SHAKE256 of descriptor + pk)
-	// Note: This would need the actual address derivation logic from go-qrllib
-	// For now, we output what we have
+	pk := mldsa.GetPK()
+
 	output := WalletOutput{
 		Seed:       testSeedHex,
-		PublicKey:  hex.EncodeToString(mldsa.GetPK()),
+		PublicKey:  hex.EncodeToString(pk[:]),
 		Address:    "TODO: derive address",
 		Message:    testMessage,
 		MessageHex: hex.EncodeToString(message),
-		Signature:  hex.EncodeToString(signature),
+		Signature:  hex.EncodeToString(signature[:]),
 	}
 
 	data, _ := json.MarshalIndent(output, "", "  ")

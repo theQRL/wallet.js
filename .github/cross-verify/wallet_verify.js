@@ -3,9 +3,9 @@
  * Verify signature from go-qrllib with wallet.js.
  * Reads: /tmp/go_qrllib_output.json
  */
-const fs = require('fs');
-const { hexToBytes } = require('@noble/hashes/utils');
-const { Wallet } = require('../../src/wallet/ml_dsa_87/wallet.js');
+import fs from 'fs';
+import { hexToBytes } from '@noble/hashes/utils';
+import { Wallet } from '../../src/wallet/ml_dsa_87/wallet.js';
 
 async function main() {
   const inputFile = '/tmp/go_qrllib_output.json';

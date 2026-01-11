@@ -3,10 +3,10 @@
  * Generate wallet signature for cross-implementation verification.
  * Outputs: seed, public key, message, and signature in hex format.
  */
-const fs = require('fs');
-const { bytesToHex } = require('@noble/hashes/utils');
-const { Wallet } = require('../../src/wallet/ml_dsa_87/wallet.js');
-const { Seed } = require('../../src/wallet/common/seed.js');
+import fs from 'fs';
+import { bytesToHex } from '@noble/hashes/utils';
+import { Wallet } from '../../src/wallet/ml_dsa_87/wallet.js';
+import { Seed } from '../../src/wallet/common/seed.js';
 
 // Fixed test seed for reproducible results
 const TEST_SEED_HEX =

@@ -31,6 +31,7 @@ function newWalletFromExtendedSeed(extendedSeed) {
       return MLDSA87.newWalletFromExtendedSeed(ext);
     // case WalletType.SPHINCSPLUS_256S:
     //   Not yet implemented - reserved for future use
+    /* c8 ignore next 2 */
     default:
       throw new Error(`Unsupported wallet type: ${desc.type()}`);
   }

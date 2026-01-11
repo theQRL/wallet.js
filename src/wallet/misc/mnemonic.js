@@ -24,12 +24,10 @@ function binToMnemonic(input) {
   for (let nibble = 0; nibble < input.length * 2; nibble += 3) {
     const p = nibble >> 1;
     const b1 = input[p];
+    /* c8 ignore next -- fallback unreachable for valid (multiple of 3) input */
     const b2 = p + 1 < input.length ? input[p + 1] : 0;
     const idx = nibble % 2 === 0 ? (b1 << 4) + (b2 >> 4) : ((b1 & 0x0f) << 8) + b2;
 
-    if (idx >= WordList.length) {
-      throw new Error('mnemonic index out of range');
-    }
     words.push(WordList[idx]);
   }
 

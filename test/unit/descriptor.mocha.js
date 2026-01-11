@@ -23,6 +23,15 @@ describe('wallet/common/descriptor', () => {
     expect(descBytes).to.deep.equal(Uint8Array.from([1, 0x10, 0x20]));
   });
 
+  it('getDescriptorBytes handles null/undefined metadata', () => {
+    // Explicit null metadata falls back to [0, 0]
+    expect(getDescriptorBytes(WalletType.ML_DSA_87, null)).to.deep.equal(Uint8Array.from([1, 0, 0]));
+    // Explicit undefined metadata falls back to [0, 0]
+    expect(getDescriptorBytes(WalletType.ML_DSA_87, undefined)).to.deep.equal(Uint8Array.from([1, 0, 0]));
+    // Partial metadata array fills missing with 0
+    expect(getDescriptorBytes(WalletType.ML_DSA_87, [0x10])).to.deep.equal(Uint8Array.from([1, 0x10, 0]));
+  });
+
   it('getDescriptorBytes throws on invalid wallet type', () => {
     expect(() => getDescriptorBytes(Uint8Array.from([0, 0, 0]))).to.throw('Invalid wallet type in descriptor');
   });

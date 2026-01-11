@@ -8,6 +8,7 @@ import randomBytes from 'randombytes';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
 import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
+import { Descriptor } from '../common/descriptor.js';
 import { Seed, ExtendedSeed } from '../common/seed.js';
 import { newMLDSA87Descriptor } from './descriptor.js';
 import { keygen, sign, verify } from './crypto.js';
@@ -81,17 +82,22 @@ class Wallet {
 
   /** @returns {Descriptor} */
   getDescriptor() {
-    return this.descriptor;
+    return new Descriptor(this.descriptor.toBytes());
   }
 
   /** @returns {ExtendedSeed} */
   getExtendedSeed() {
-    return this.extendedSeed;
+    const bytes = this.extendedSeed.toBytes();
+    try {
+      return ExtendedSeed.from(bytes);
+    } catch {
+      return ExtendedSeed.fromUnchecked(bytes);
+    }
   }
 
   /** @returns {Seed} */
   getSeed() {
-    return this.seed;
+    return new Seed(this.seed.toBytes());
   }
 
   /** @returns {string} hex(ExtendedSeed) */

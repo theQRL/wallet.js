@@ -26,7 +26,7 @@
   "license": "MIT",
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@theqrl/mldsa87": "^0.2.0",
+    "@theqrl/mldsa87": "^1.0.3",
     "randombytes": "^2.1.0"
   },
   "directories": {
@@ -40,6 +40,7 @@
   ],
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^10.0.1",
     "@types/node": "^20.14.12",
     "c8": "^7.13.0",

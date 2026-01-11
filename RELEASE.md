@@ -1,83 +1,59 @@
 # Release Process
 
-Releases are automated via [semantic-release](https://github.com/semantic-release/semantic-release).
+This project automates versioning through **semantic-release**, which analyzes commit messages to determine version bumps and publish releases automatically.
 
 ## How It Works
 
-1. Commits to `main` trigger the release workflow
-2. semantic-release analyzes commit messages to determine version bump
-3. If releasable commits exist, it:
-   - Bumps version in `package.json`
-   - Generates/updates `CHANGELOG.md`
-   - Builds the package
-   - Publishes to npm
-   - Creates GitHub release with release notes
-   - Commits version bump back to repo
+The system uses **Conventional Commits** format to trigger different version changes:
 
-## Commit Message Format
-
-Releases are triggered by [Conventional Commits](https://www.conventionalcommits.org/):
-
-| Commit Type | Version Bump | Example |
-|-------------|--------------|---------|
-| `fix:` | Patch (0.0.x) | `fix: correct address validation` |
-| `feat:` | Minor (0.x.0) | `feat: add SPHINCS+ wallet support` |
-| `feat!:` or `BREAKING CHANGE:` | Major (x.0.0) | `feat!: change signature format` |
+- `fix:` triggers patch versions (1.0.0 → 1.0.1)
+- `feat:` triggers minor versions (1.0.0 → 1.1.0)
+- `BREAKING CHANGE:` or `!` triggers major versions (1.0.0 → 2.0.0)
 
 Other prefixes (`chore:`, `docs:`, `test:`, `refactor:`) do not trigger releases.
 
-## Manual Release (Emergency)
+## Commit Message Format
 
-If automated release fails, you can release manually:
+Messages follow this template:
 
-```bash
-# Ensure clean working tree
-git status
+```
+type(scope): description
 
-# Run tests and lint
-npm test
-npm run lint-check
+[optional body]
 
-# Build
-npm run build
-
-# Verify package contents
-npm pack --dry-run
-
-# Publish (requires npm auth)
-npm publish --access public
-
-# Tag and push
-git tag v<VERSION>
-git push origin main --tags
+[optional footer]
 ```
 
-## Trusted Publishing (OIDC)
+Examples:
 
-This repo uses [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) with OIDC for secure, tokenless publishing.
+```
+fix: correct address validation
 
-**Setup on npmjs.com:**
-1. Go to package settings → Trusted Publishers
-2. Add GitHub Actions publisher:
-   - Organization: `theQRL`
-   - Repository: `wallet.js`
-   - Workflow: `test.yml`
-   - Environment: `npm-publish`
+feat(wallet): add SPHINCS+ support
 
-**Benefits:**
-- No long-lived NPM_TOKEN to manage/rotate/leak
-- Short-lived, workflow-specific OIDC credentials
-- Automatic provenance attestations
-- Cryptographic trust chain
+feat!: change signature format
 
-**GitHub Environment:**
-Create an environment called `npm-publish` in repository settings (Settings → Environments).
+feat: update API response structure
 
-## Required Secrets
+BREAKING CHANGE: response now returns object instead of array
+```
 
-- `GITHUB_TOKEN` - Automatically provided by GitHub Actions (no manual setup)
+## Workflow
 
-## Configuration
+1. Create feature branches with properly formatted commits
+2. Submit pull requests to `main`
+3. Upon merge, GitHub Actions automatically:
+   - Analyzes commits since the last release
+   - Calculates the appropriate version number
+   - Updates `package.json` version
+   - Generates changelog from commit messages
+   - Builds and publishes to npm
+   - Creates a Git tag and GitHub release
 
-- `.releaserc.json` - semantic-release configuration
-- Workflow: `.github/workflows/test.yml` (release job)
+## Best Practices
+
+- Write atomic commits (one logical change per commit)
+- Use clear, imperative-mood subjects under 72 characters
+- Include detailed explanations in commit bodies when needed
+- Reference relevant issues in footers (e.g., `Fixes #123`)
+- Use consistent scope labels like `(crypto)`, `(wallet)`, `(api)` for organization

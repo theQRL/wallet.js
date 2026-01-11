@@ -1,3 +1,15 @@
+## [1.0.0](https://github.com/theQRL/wallet.js/compare/v0.2.2...v1.0.0) (2026-01-11)
+
+### ⚠ BREAKING CHANGES
+
+* trigger release
+* post-internal audit release
+
+### Features
+
+* post-internal audit release ([6257cf3](https://github.com/theQRL/wallet.js/commit/6257cf366962c95c22d1aa478bbed3783433a513))
+* trigger release ([691b42a](https://github.com/theQRL/wallet.js/commit/691b42a9a3ff5b6e152fc644e9ff675420c05963))
+
 ## [0.2.2](https://github.com/theQRL/wallet.js/compare/v0.2.1...v0.2.2) (2026-01-11)
 
 

@@ -40,6 +40,13 @@ describe('ML-DSA-87 Wallet', () => {
     expect(w.getSK()).to.be.instanceof(Uint8Array);
   });
 
+  it('getDescriptor() returns ML_DSA_87 type descriptor', () => {
+    const w = MLDSA87.newWallet();
+    const desc = w.getDescriptor();
+    expect(desc.type()).to.equal(1); // ML_DSA_87
+    expect(desc.toBytes().length).to.equal(DESCRIPTOR_SIZE);
+  });
+
   describe('Seed bytes equal extendedSeed sans 3-byte descriptor', () => {
     Object.entries(walletCreators).forEach(([creatorName, creator]) => {
       walletTestCases.forEach((tc) => {

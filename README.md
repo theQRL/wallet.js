@@ -1,5 +1,6 @@
 # wallet.js
 
+[![npm version](https://img.shields.io/npm/v/@theqrl/wallet.js.svg)](https://www.npmjs.com/package/@theqrl/wallet.js)
 ![test](https://github.com/theQRL/wallet.js/actions/workflows/test.yml/badge.svg)
 [![codecov](https://codecov.io/gh/theQRL/wallet.js/branch/main/graph/badge.svg?token=HHVBFBVGFR)](https://codecov.io/gh/theQRL/wallet.js)
 
@@ -196,5 +197,5 @@ This library currently supports **ML-DSA-87** (FIPS 204), the NIST standardized 
 - `randombytes` - Secure random generation
 
 ## License
-
+[MIT](LICENSE)
 MIT

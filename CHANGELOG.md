@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/theQRL/wallet.js/compare/v1.0.1...v1.0.2) (2026-01-16)
+
+### Bug Fixes
+
+* trigger release (bump mldsa package version) ([8f9da84](https://github.com/theQRL/wallet.js/commit/8f9da848292eabdb0f39b40a59c13a7dbb4b9706))
+
 ## [1.0.1](https://github.com/theQRL/wallet.js/compare/v1.0.0...v1.0.1) (2026-01-11)
 
 ### Bug Fixes

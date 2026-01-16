@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 /**
  * Verify signature from go-qrllib with wallet.js.
- * Reads: /tmp/go_qrllib_output.json
+ * Reads: $TMPDIR/wallet_cross_verify/go_qrllib_output.json
  */
 import fs from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { hexToBytes } from '@noble/hashes/utils';
 import { Wallet } from '../../src/wallet/ml_dsa_87/wallet.js';
 
 async function main() {
-  const inputFile = '/tmp/go_qrllib_output.json';
+  const inputFile = join(tmpdir(), 'wallet_cross_verify', 'go_qrllib_output.json');
 
   if (!fs.existsSync(inputFile)) {
     console.error(`Input file not found: ${inputFile}`);

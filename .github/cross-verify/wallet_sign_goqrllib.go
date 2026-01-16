@@ -1,5 +1,5 @@
 // Generate wallet signature with go-qrllib for cross-implementation verification
-// This script generates a signature and writes to /tmp/go_qrllib_output.json
+// This script generates a signature and writes to $TMPDIR/wallet_cross_verify/go_qrllib_output.json
 package main
 
 import (
@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
 )
@@ -60,8 +61,23 @@ func main() {
 		Signature:  hex.EncodeToString(signature[:]),
 	}
 
+	// Create secure output directory (remove any existing symlink/file first)
+	outputDir := filepath.Join(os.TempDir(), "wallet_cross_verify")
+	if err := os.RemoveAll(outputDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to clean output directory: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
 	data, _ := json.MarshalIndent(output, "", "  ")
-	os.WriteFile("/tmp/go_qrllib_output.json", data, 0644)
+	outputPath := filepath.Join(outputDir, "go_qrllib_output.json")
+	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write output: %v\n", err)
+		os.Exit(1)
+	}
 
 	fmt.Println("go-qrllib signature generated:")
 	fmt.Printf("  PK (first 64 chars): %s...\n", output.PublicKey[:64])

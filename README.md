@@ -197,5 +197,5 @@ This library currently supports **ML-DSA-87** (FIPS 204), the NIST standardized 
 - `randombytes` - Secure random generation
 
 ## License
-
+[MIT](LICENSE)
 MIT

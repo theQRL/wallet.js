@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@theqrl/mldsa87": "^1.0.3",
+    "@theqrl/mldsa87": "^1.0.5",
     "randombytes": "^2.1.0"
   },
   "directories": {

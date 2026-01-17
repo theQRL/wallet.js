@@ -2,5 +2,6 @@
     "spec": ["test/**/*.mocha.js"],
     "recursive": true,
     "extension": ["js"],
-    "timeout": 60000
+    "timeout": 60000,
+    "require": ["./scripts/node-test-setup.cjs"]
 }

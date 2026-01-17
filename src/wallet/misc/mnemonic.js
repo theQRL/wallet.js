@@ -38,8 +38,12 @@ function binToMnemonic(input) {
  * Decode spaced hex mnemonic to bytes.
  * @param {string} mnemonic
  * @returns {Uint8Array}
+ *
+ * Note: Mnemonic words are normalized to lowercase for user convenience.
+ * This is by design to reduce errors from capitalization differences.
  */
 function mnemonicToBin(mnemonic) {
+  // Normalize to lowercase for user-friendly input (case-insensitive matching)
   const mnemonicWords = mnemonic.trim().toLowerCase().split(/\s+/);
   if (mnemonicWords.length % 2 !== 0) throw new Error('word count must be even');
 

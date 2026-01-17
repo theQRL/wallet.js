@@ -17,6 +17,7 @@
     "build": "rollup -c && ./fixup",
     "prepublishOnly": "npm run build",
     "test": "mocha",
+    "test:browser": "playwright test",
     "lint-check": "eslint 'src/**/*.js' 'test/**/*.js'",
     "lint": "eslint --fix 'src/**/*.js' 'test/**/*.js'",
     "report-coverage": "c8 --reporter=text-lcov npm run test > coverage.lcov",
@@ -30,8 +31,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",
-    "@theqrl/mldsa87": "^1.0.5",
-    "randombytes": "^2.1.0"
+    "@theqrl/mldsa87": "^1.0.6"
   },
   "directories": {
     "lib": "src",
@@ -43,6 +43,7 @@
     "types"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^10.0.1",
@@ -57,6 +58,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "fast-check": "^4.5.3",
     "mocha": "^10.2.0",
+    "playwright": "^1.57.0",
     "prettier": "^2.8.7",
     "rollup": "^4.55.1",
     "typescript": "^5.5.4"

@@ -13,11 +13,18 @@ import {
 
 /**
  * Generate a keypair.
+ *
+ * Note: ML-DSA-87 (FIPS 204) requires a 32-byte seed for key generation.
+ * QRL uses a 48-byte seed for mnemonic compatibility across wallet types.
+ * SHA-256 hashing reduces the 48-byte seed to the required 32 bytes per spec.
+ * This matches go-qrllib behavior for cross-implementation compatibility.
+ *
  * @returns {{ pk: Uint8Array, sk: Uint8Array }}
  */
 function keygen(seed) {
   const pk = new Uint8Array(CryptoPublicKeyBytes);
   const sk = new Uint8Array(CryptoSecretKeyBytes);
+  // FIPS 204 requires 32-byte seed; hash 48-byte QRL seed to derive it
   const seedBytes = new Uint8Array(seed.hashSHA256());
   cryptoSignKeypair(seedBytes, pk, sk);
   return { pk, sk };

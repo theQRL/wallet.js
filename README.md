@@ -116,6 +116,10 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 
 ### Address Utilities
 
+**Address Format:** `Q` prefix + 40 lowercase hex characters (41 chars total).
+- Output is always lowercase; input parsing is case-insensitive
+- No checksum encoding (unlike EIP-55)
+
 ```javascript
 import {
   addressToString,
@@ -126,8 +130,9 @@ import {
 // Convert bytes to string
 const addrStr = addressToString(addressBytes); // 'Qabc...'
 
-// Convert string to bytes
+// Convert string to bytes (case-insensitive)
 const addrBytes = stringToAddress('Qabc123...');
+const same = stringToAddress('QABC123...');  // Also valid
 
 // Validate address format
 if (isValidAddress(userInput)) {

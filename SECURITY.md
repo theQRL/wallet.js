@@ -50,6 +50,55 @@ Addresses are 20 bytes, displayed with a `Q` prefix in hexadecimal (41 character
 
 ---
 
+## Mnemonic Security
+
+### No Built-in Checksum
+
+**Important:** Unlike BIP39, QRL mnemonics do not include a checksum for error detection.
+
+**Implications:**
+- A typo in a mnemonic word may still produce a valid (but different) wallet
+- User errors during backup or restore cannot be detected by the library
+- Example: "absorb" and "absent" are both valid words - swapping them produces a different wallet
+
+**Recommended Application-Level Mitigations:**
+
+1. **Address Verification on Restore:**
+   Store a hash of the expected address alongside the encrypted mnemonic in wallet files:
+   ```javascript
+   // When creating wallet
+   const wallet = MLDSA87.newWallet();
+   const addressHash = sha256(wallet.getAddress());
+   saveWalletFile({ encryptedMnemonic, addressHash });
+
+   // When restoring wallet
+   const restored = MLDSA87.newWalletFromMnemonic(mnemonic);
+   const restoredHash = sha256(restored.getAddress());
+   if (!constantTimeEqual(restoredHash, expectedHash)) {
+     throw new Error('Mnemonic does not match expected wallet');
+   }
+   ```
+
+2. **Visual Confirmation:**
+   Always display the derived address to the user after restore and require explicit confirmation.
+
+3. **Partial Address Display:**
+   Show the first/last few characters of the expected address during restore for visual verification.
+
+---
+
+## Seed Derivation
+
+ML-DSA-87 (FIPS 204) requires a 32-byte seed for key generation. QRL uses a 48-byte seed for mnemonic compatibility across wallet types. The seed is hashed with SHA-256 to derive the required 32-byte ML-DSA seed:
+
+```
+48-byte QRL Seed → SHA-256 → 32-byte ML-DSA-87 Seed → Key Generation
+```
+
+This is by design for FIPS 204 compliance and go-qrllib cross-implementation compatibility. The 256-bit entropy in the derived seed provides full security for ML-DSA-87's NIST Level 5.
+
+---
+
 ## Sensitive Data
 
 ### Assets to Protect
@@ -110,6 +159,8 @@ try {
   console.error('Invalid mnemonic:', e.message);
 }
 ```
+
+**Design Note:** Input validation functions (`isValidAddress`, etc.) return boolean. Data conversion and cryptographic functions throw on invalid input. Signature verification returns boolean (true/false) without leaking timing information about why verification failed.
 
 ---
 

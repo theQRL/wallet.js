@@ -1,6 +1,13 @@
 /**
  * Address helpers.
  * @module wallet/common/address
+ *
+ * Address Format:
+ *   - String form: "Q" prefix followed by 40 lowercase hex characters (41 chars total)
+ *   - Byte form: 20-byte SHAKE-256 hash of (descriptor || public key)
+ *   - Output is always lowercase hex; input parsing is case-insensitive for both
+ *     the "Q"/"q" prefix and hex characters
+ *   - Unlike EIP-55, no checksum encoding is used in the address itself
  */
 
 /** @typedef {import('./descriptor.js').Descriptor} Descriptor */

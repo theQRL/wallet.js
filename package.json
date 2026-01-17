@@ -42,6 +42,9 @@
     "src",
     "types"
   ],
+  "overrides": {
+    "tar": "^7.5.3"
+  },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@semantic-release/changelog": "^6.0.3",

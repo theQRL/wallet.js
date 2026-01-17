@@ -4,8 +4,8 @@
  */
 
 /** @typedef {import('../common/descriptor.js').Descriptor} Descriptor */
-import randomBytes from 'randombytes';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { randomBytes } from '../../utils/random.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
 import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
 import { Descriptor } from '../common/descriptor.js';

@@ -34,3 +34,4 @@ yarn-error.log*
 
 # code coverage
 coverage.lcov
+/test-results

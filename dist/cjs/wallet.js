@@ -4,9 +4,9 @@ var sha3 = require('@noble/hashes/sha3');
 var mldsa87 = require('@theqrl/mldsa87');
 var sha2_js = require('@noble/hashes/sha2.js');
 var utils = require('@noble/hashes/utils');
-var randomBytes = require('randombytes');
 var utils_js = require('@noble/hashes/utils.js');
 
+var _documentCurrentScript = typeof document !== 'undefined' ? document.currentScript : null;
 /**
  * Constants used across wallet components.
  * @module wallet/common/constants
@@ -27,6 +27,13 @@ const EXTENDED_SEED_SIZE = DESCRIPTOR_SIZE + SEED_SIZE;
 /**
  * Address helpers.
  * @module wallet/common/address
+ *
+ * Address Format:
+ *   - String form: "Q" prefix followed by 40 lowercase hex characters (41 chars total)
+ *   - Byte form: 20-byte SHAKE-256 hash of (descriptor || public key)
+ *   - Output is always lowercase hex; input parsing is case-insensitive for both
+ *     the "Q"/"q" prefix and hex characters
+ *   - Unlike EIP-55, no checksum encoding is used in the address itself
  */
 
 
@@ -305,15 +312,17 @@ class ExtendedSeed {
   /**
    * Layout: [3 bytes descriptor] || [48 bytes seed].
    * @param {Uint8Array} bytes Exactly 51 bytes.
+   * @param {{ skipValidation?: boolean }} [options]
    * @throws {Error} If size mismatch.
    */
-  constructor(bytes) {
+  constructor(bytes, options = {}) {
     if (!bytes || bytes.length !== EXTENDED_SEED_SIZE) {
       throw new Error(`ExtendedSeed must be ${EXTENDED_SEED_SIZE} bytes`);
     }
+    const { skipValidation = false } = options;
     /** @private @type {Uint8Array} */
     this.bytes = Uint8Array.from(bytes);
-    if (!isValidWalletType(this.bytes[0])) {
+    if (!skipValidation && !isValidWalletType(this.bytes[0])) {
       throw new Error('Invalid wallet type in descriptor');
     }
   }
@@ -375,6 +384,17 @@ class ExtendedSeed {
   static from(input) {
     return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'));
   }
+
+  /**
+   * Internal helper: construct without wallet type validation.
+   * @param {string|Uint8Array|Buffer|number[]} input
+   * @returns {ExtendedSeed}
+   */
+  static fromUnchecked(input) {
+    return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'), {
+      skipValidation: true,
+    });
+  }
 }
 
 /**
@@ -390,6 +410,86 @@ class ExtendedSeed {
  */
 function newMLDSA87Descriptor(metadata = [0, 0]) {
   return new Descriptor(getDescriptorBytes(WalletType.ML_DSA_87, metadata));
+}
+
+/**
+ * Secure random number generation for browser and Node.js environments.
+ * @module utils/random
+ */
+
+const MAX_BYTES = 65536;
+
+function getGlobalScope() {
+  if (typeof globalThis === 'object') return globalThis;
+  // eslint-disable-next-line no-restricted-globals
+  if (typeof self === 'object') return self;
+  if (typeof window === 'object') return window;
+  if (typeof global === 'object') return global;
+  return {};
+}
+
+function getWebCrypto() {
+  const scope = getGlobalScope();
+  return scope.crypto || scope.msCrypto || null;
+}
+
+function getNodeRandomBytes() {
+  /* c8 ignore next */
+  const isNode = typeof process === 'object' && process !== null && process.versions && process.versions.node;
+  if (!isNode) return null;
+
+  let req = null;
+  if (typeof module !== 'undefined' && module && typeof module.require === 'function') {
+    req = module.require.bind(module);
+  } else if (typeof module !== 'undefined' && module && typeof module.createRequire === 'function') {
+    req = module.createRequire((typeof document === 'undefined' ? require('u' + 'rl').pathToFileURL(__filename).href : (_documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === 'SCRIPT' && _documentCurrentScript.src || new URL('wallet.js', document.baseURI).href)));
+  } else if (typeof require === 'function') {
+    req = require;
+  }
+  if (!req) return null;
+
+  try {
+    const nodeCrypto = req('crypto');
+    if (nodeCrypto && typeof nodeCrypto.randomBytes === 'function') {
+      return nodeCrypto.randomBytes;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Generate cryptographically secure random bytes.
+ *
+ * Uses Web Crypto API (getRandomValues) in browsers and crypto.randomBytes in Node.js.
+ *
+ * @param {number} size - Number of random bytes to generate
+ * @returns {Uint8Array} Random bytes
+ * @throws {RangeError} If size is invalid or too large
+ * @throws {Error} If no secure random source is available
+ */
+function randomBytes(size) {
+  if (!Number.isSafeInteger(size) || size < 0) {
+    throw new RangeError('size must be a non-negative integer');
+  }
+
+  const cryptoObj = getWebCrypto();
+  if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+    const out = new Uint8Array(size);
+    for (let i = 0; i < size; i += MAX_BYTES) {
+      cryptoObj.getRandomValues(out.subarray(i, Math.min(size, i + MAX_BYTES)));
+    }
+    return out;
+  }
+
+  const nodeRandomBytes = getNodeRandomBytes();
+  if (nodeRandomBytes) {
+    return nodeRandomBytes(size);
+  }
+
+  throw new Error('Secure random number generation is not supported by this environment');
 }
 
 /**
@@ -4526,12 +4626,10 @@ function binToMnemonic(input) {
   for (let nibble = 0; nibble < input.length * 2; nibble += 3) {
     const p = nibble >> 1;
     const b1 = input[p];
+    /* c8 ignore next -- fallback unreachable for valid (multiple of 3) input */
     const b2 = p + 1 < input.length ? input[p + 1] : 0;
     const idx = nibble % 2 === 0 ? (b1 << 4) + (b2 >> 4) : ((b1 & 0x0f) << 8) + b2;
 
-    if (idx >= WordList.length) {
-      throw new Error('mnemonic index out of range');
-    }
     words.push(WordList[idx]);
   }
 
@@ -4542,8 +4640,12 @@ function binToMnemonic(input) {
  * Decode spaced hex mnemonic to bytes.
  * @param {string} mnemonic
  * @returns {Uint8Array}
+ *
+ * Note: Mnemonic words are normalized to lowercase for user convenience.
+ * This is by design to reduce errors from capitalization differences.
  */
 function mnemonicToBin(mnemonic) {
+  // Normalize to lowercase for user-friendly input (case-insensitive matching)
   const mnemonicWords = mnemonic.trim().toLowerCase().split(/\s+/);
   if (mnemonicWords.length % 2 !== 0) throw new Error('word count must be even');
 
@@ -4583,11 +4685,18 @@ function mnemonicToBin(mnemonic) {
 
 /**
  * Generate a keypair.
+ *
+ * Note: ML-DSA-87 (FIPS 204) requires a 32-byte seed for key generation.
+ * QRL uses a 48-byte seed for mnemonic compatibility across wallet types.
+ * SHA-256 hashing reduces the 48-byte seed to the required 32 bytes per spec.
+ * This matches go-qrllib behavior for cross-implementation compatibility.
+ *
  * @returns {{ pk: Uint8Array, sk: Uint8Array }}
  */
 function keygen(seed) {
   const pk = new Uint8Array(mldsa87.CryptoPublicKeyBytes);
   const sk = new Uint8Array(mldsa87.CryptoSecretKeyBytes);
+  // FIPS 204 requires 32-byte seed; hash 48-byte QRL seed to derive it
   const seedBytes = new Uint8Array(seed.hashSHA256());
   mldsa87.cryptoSignKeypair(seedBytes, pk, sk);
   return { pk, sk };
@@ -4732,17 +4841,22 @@ class Wallet {
 
   /** @returns {Descriptor} */
   getDescriptor() {
-    return this.descriptor;
+    return new Descriptor(this.descriptor.toBytes());
   }
 
   /** @returns {ExtendedSeed} */
   getExtendedSeed() {
-    return this.extendedSeed;
+    const bytes = this.extendedSeed.toBytes();
+    try {
+      return ExtendedSeed.from(bytes);
+    } catch {
+      return ExtendedSeed.fromUnchecked(bytes);
+    }
   }
 
   /** @returns {Seed} */
   getSeed() {
-    return this.seed;
+    return new Seed(this.seed.toBytes());
   }
 
   /** @returns {string} hex(ExtendedSeed) */
@@ -4835,6 +4949,7 @@ function newWalletFromExtendedSeed(extendedSeed) {
       return Wallet.newWalletFromExtendedSeed(ext);
     // case WalletType.SPHINCSPLUS_256S:
     //   Not yet implemented - reserved for future use
+    /* c8 ignore next 2 */
     default:
       throw new Error(`Unsupported wallet type: ${desc.type()}`);
   }

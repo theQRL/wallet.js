@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/theQRL/wallet.js/compare/v1.0.3...v1.0.4) (2026-01-18)
+
+### Bug Fixes
+
+* provenance/attestation ([3a31e51](https://github.com/theQRL/wallet.js/commit/3a31e519c8f1e2d63f63d6cd8c4b3909ffe2a821))
+* qrypto.js version and supply chain ci ([621bbaa](https://github.com/theQRL/wallet.js/commit/621bbaacb1e768c2c010f135d1bd648f56fc5cfa))
+
 ## [1.0.3](https://github.com/theQRL/wallet.js/compare/v1.0.2...v1.0.3) (2026-01-17)
 
 ### Bug Fixes

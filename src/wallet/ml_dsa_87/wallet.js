@@ -33,9 +33,13 @@ class Wallet {
   static newWallet(metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const seedBytes = randomBytes(48);
-    const seed = new Seed(seedBytes);
-    const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    try {
+      const seed = new Seed(seedBytes);
+      const { pk, sk } = keygen(seed);
+      return new Wallet({ descriptor, seed, pk, sk });
+    } finally {
+      seedBytes.fill(0);
+    }
   }
 
   /**
@@ -66,8 +70,12 @@ class Wallet {
    */
   static newWalletFromMnemonic(mnemonic) {
     const bin = mnemonicToBin(mnemonic);
-    const extendedSeed = new ExtendedSeed(bin);
-    return this.newWalletFromExtendedSeed(extendedSeed);
+    try {
+      const extendedSeed = new ExtendedSeed(bin);
+      return this.newWalletFromExtendedSeed(extendedSeed);
+    } finally {
+      bin.fill(0);
+    }
   }
 
   /** @returns {Uint8Array} */
@@ -115,7 +123,13 @@ class Wallet {
     return this.pk.slice();
   }
 
-  /** @returns {Uint8Array} */
+  /**
+   * Returns a copy of the secret key.
+   * @returns {Uint8Array}
+   * @warning Caller is responsible for zeroing the returned buffer when done
+   * (e.g. `sk.fill(0)`). The Wallet's `zeroize()` method cannot reach copies
+   * returned by this method.
+   */
   getSK() {
     return this.sk.slice();
   }
@@ -152,11 +166,11 @@ class Wallet {
     if (this.sk) {
       this.sk.fill(0);
     }
-    if (this.seed && this.seed.bytes) {
-      this.seed.bytes.fill(0);
+    if (this.seed) {
+      this.seed.zeroize();
     }
-    if (this.extendedSeed && this.extendedSeed.bytes) {
-      this.extendedSeed.bytes.fill(0);
+    if (this.extendedSeed) {
+      this.extendedSeed.zeroize();
     }
   }
 }

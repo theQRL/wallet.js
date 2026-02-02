@@ -1,3 +1,9 @@
+## [1.0.5](https://github.com/theQRL/wallet.js/compare/v1.0.4...v1.0.5) (2026-02-02)
+
+### Bug Fixes
+
+* zero seed & intermediate buffers ([f08c279](https://github.com/theQRL/wallet.js/commit/f08c27949c15adce7f276e10aa7d7bfcab1c36ee))
+
 ## [1.0.4](https://github.com/theQRL/wallet.js/compare/v1.0.3...v1.0.4) (2026-01-18)
 
 ### Bug Fixes

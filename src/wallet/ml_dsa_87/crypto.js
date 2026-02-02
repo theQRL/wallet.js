@@ -26,8 +26,12 @@ function keygen(seed) {
   const sk = new Uint8Array(CryptoSecretKeyBytes);
   // FIPS 204 requires 32-byte seed; hash 48-byte QRL seed to derive it
   const seedBytes = new Uint8Array(seed.hashSHA256());
-  cryptoSignKeypair(seedBytes, pk, sk);
-  return { pk, sk };
+  try {
+    cryptoSignKeypair(seedBytes, pk, sk);
+    return { pk, sk };
+  } finally {
+    seedBytes.fill(0);
+  }
 }
 
 /**

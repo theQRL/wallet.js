@@ -60,10 +60,15 @@ function getDescriptorBytes(walletType, metadata = [0, 0]) {
   if (!isValidWalletType(walletType)) {
     throw new Error('Invalid wallet type in descriptor');
   }
+  const m0 = metadata?.[0] ?? 0;
+  const m1 = metadata?.[1] ?? 0;
+  if (!Number.isInteger(m0) || m0 < 0 || m0 > 255 || !Number.isInteger(m1) || m1 < 0 || m1 > 255) {
+    throw new Error('Descriptor metadata bytes must be in range [0, 255]');
+  }
   const out = new Uint8Array(DESCRIPTOR_SIZE);
   out[0] = walletType >>> 0;
-  out[1] = (metadata?.[0] ?? 0) >>> 0;
-  out[2] = (metadata?.[1] ?? 0) >>> 0;
+  out[1] = m0;
+  out[2] = m1;
   return out;
 }
 

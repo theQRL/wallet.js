@@ -35,6 +35,13 @@ class Seed {
   }
 
   /**
+   * Best-effort zeroize internal seed bytes.
+   */
+  zeroize() {
+    this.bytes.fill(0);
+  }
+
+  /**
    * Constructor: accepts hex string / Uint8Array / Buffer / number[].
    * @param {string|Uint8Array|Buffer|number[]} input
    * @returns {Seed}
@@ -109,7 +116,11 @@ class ExtendedSeed {
     const out = new Uint8Array(EXTENDED_SEED_SIZE);
     out.set(desc.toBytes(), 0);
     out.set(seed.toBytes(), DESCRIPTOR_SIZE);
-    return new ExtendedSeed(out);
+    try {
+      return new ExtendedSeed(out);
+    } finally {
+      out.fill(0);
+    }
   }
 
   /**
@@ -119,6 +130,13 @@ class ExtendedSeed {
    */
   static from(input) {
     return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'));
+  }
+
+  /**
+   * Best-effort zeroize internal extended seed bytes.
+   */
+  zeroize() {
+    this.bytes.fill(0);
   }
 
   /**

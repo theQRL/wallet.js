@@ -35,6 +35,14 @@ describe('wallet/common/seed', () => {
       expect(() => new Seed(Uint8Array.from([1]))).to.throw(`Seed must be ${SEED_SIZE} bytes`);
       expect(() => Seed.from('0xdead')).to.throw(`Seed: expected ${SEED_SIZE} bytes, got 2`);
     });
+
+    it('zeroize clears internal bytes', () => {
+      const seedBytes = buildSeedBytes();
+      const seed = new Seed(seedBytes);
+      seed.zeroize();
+      const zeros = new Uint8Array(SEED_SIZE);
+      expect(seed.toBytes()).to.deep.equal(zeros);
+    });
   });
 
   describe('ExtendedSeed', () => {
@@ -80,6 +88,17 @@ describe('wallet/common/seed', () => {
     it('throws on invalid sizes', () => {
       expect(() => new ExtendedSeed(Uint8Array.from([1]))).to.throw(`ExtendedSeed must be ${EXTENDED_SEED_SIZE} bytes`);
       expect(() => ExtendedSeed.from('0xdead')).to.throw(`ExtendedSeed: expected ${EXTENDED_SEED_SIZE} bytes, got 2`);
+    });
+
+    it('zeroize clears internal bytes', () => {
+      const descBytes = buildDescriptorBytes();
+      const desc = new Descriptor(descBytes);
+      const seedBytes = buildSeedBytes();
+      const seed = new Seed(seedBytes);
+      const ext = ExtendedSeed.newExtendedSeed(desc, seed);
+      ext.zeroize();
+      const zeros = new Uint8Array(EXTENDED_SEED_SIZE);
+      expect(ext.toBytes()).to.deep.equal(zeros);
     });
   });
 });

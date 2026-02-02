@@ -33,9 +33,15 @@ describe('wallet/common/descriptor', () => {
   });
 
   it('getDescriptorBytes throws on out-of-range metadata', () => {
-    expect(() => getDescriptorBytes(WalletType.ML_DSA_87, [256, 0])).to.throw('Descriptor metadata bytes must be in range [0, 255]');
-    expect(() => getDescriptorBytes(WalletType.ML_DSA_87, [0, -1])).to.throw('Descriptor metadata bytes must be in range [0, 255]');
-    expect(() => getDescriptorBytes(WalletType.ML_DSA_87, [1.5, 0])).to.throw('Descriptor metadata bytes must be in range [0, 255]');
+    expect(() => getDescriptorBytes(WalletType.ML_DSA_87, [256, 0])).to.throw(
+      'Descriptor metadata bytes must be in range [0, 255]'
+    );
+    expect(() => getDescriptorBytes(WalletType.ML_DSA_87, [0, -1])).to.throw(
+      'Descriptor metadata bytes must be in range [0, 255]'
+    );
+    expect(() => getDescriptorBytes(WalletType.ML_DSA_87, [1.5, 0])).to.throw(
+      'Descriptor metadata bytes must be in range [0, 255]'
+    );
   });
 
   it('getDescriptorBytes throws on invalid wallet type', () => {

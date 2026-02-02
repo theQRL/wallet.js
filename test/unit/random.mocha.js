@@ -88,10 +88,9 @@ describe('randomBytes', () => {
 
   itIfNode('throws when getRandomValues returns all zeros for buffers >= 16 bytes', () => {
     const stubCrypto = {
-      getRandomValues: (arr) => {
+      getRandomValues: (arr) =>
         // Leave buffer as all zeros (default Uint8Array state)
-        return arr;
-      },
+        arr,
     };
     setCrypto(stubCrypto);
 
@@ -100,10 +99,9 @@ describe('randomBytes', () => {
 
   itIfNode('does not throw all-zeros check for small buffers', () => {
     const stubCrypto = {
-      getRandomValues: (arr) => {
+      getRandomValues: (arr) =>
         // Leave buffer as all zeros
-        return arr;
-      },
+        arr,
     };
     setCrypto(stubCrypto);
 

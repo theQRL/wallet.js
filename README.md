@@ -182,7 +182,7 @@ import { MLDSA87 } from '@theqrl/wallet.js';
 const wallet = MLDSA87.newWallet();
 ```
 
-Uses Web Crypto API for secure random number generation.
+Uses Web Crypto API for secure random number generation (see _Requirements_).
 
 ## Wallet Type
 
@@ -199,7 +199,12 @@ This library currently supports **ML-DSA-87** (FIPS 204), the NIST standardized 
 
 - `@theqrl/mldsa87` - ML-DSA-87 implementation
 - `@noble/hashes` - SHA-256, SHAKE-256
-- `randombytes` - Secure random generation
+
+## Requirements
+
+- **Node.js**: 18.20+, (requires `globalThis.crypto.getRandomValues`)
+- **Browsers**: Any modern browser with [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) support (`crypto.getRandomValues()`) and ES2020 (BigInt). This includes Chrome 67+, Firefox 68+, Safari 14+, and Edge 79+.
+- **Not supported**: Internet Explorer, Node.js < 18.20, or environments without Web Crypto API
 
 ## License
 [MIT](LICENSE)

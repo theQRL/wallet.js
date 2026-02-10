@@ -50,6 +50,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Clean npm cache
+        run: npm cache clean --force
+
+      - name: Reinstall dependencies
+        run: |
+          rm -rf node_modules
+          npm install
+
       - name: Build
         run: npm run build
 
@@ -209,6 +217,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Clean npm cache
+        run: npm cache clean --force
+
+      - name: Reinstall dependencies
+        run: |
+          rm -rf node_modules
+          npm install
 
       - name: Build
         run: npm run build

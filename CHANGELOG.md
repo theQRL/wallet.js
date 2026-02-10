@@ -1,3 +1,9 @@
+## [1.1.2](https://github.com/theQRL/wallet.js/compare/v1.1.1...v1.1.2) (2026-02-10)
+
+### Bug Fixes
+
+* cjs/esm rollup ([9b3715c](https://github.com/theQRL/wallet.js/commit/9b3715c54c5304c46c3dd247aa1510e181ff4e48))
+
 ## [1.1.1](https://github.com/theQRL/wallet.js/compare/v1.1.0...v1.1.1) (2026-02-10)
 
 ### Bug Fixes

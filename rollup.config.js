@@ -1,6 +1,12 @@
 /**
  * Rollup configuration for dual ESM/CJS builds.
  */
+import resolve from '@rollup/plugin-node-resolve';
+
+// @noble/hashes is ESM-only, so it must be bundled into the CJS build.
+const nobleExternal = ['@noble/hashes/sha2.js', '@noble/hashes/sha3.js', '@noble/hashes/utils.js'];
+const otherExternal = ['@theqrl/mldsa87', 'randombytes'];
+
 export default [
   {
     input: 'src/index.js',
@@ -9,7 +15,8 @@ export default [
       format: 'cjs',
       exports: 'named',
     },
-    external: ['@noble/hashes/sha2.js', '@noble/hashes/sha3', '@noble/hashes/utils', '@noble/hashes/utils.js', '@theqrl/mldsa87', 'randombytes'],
+    plugins: [resolve({ preferBuiltins: false })],
+    external: ['randombytes'],
   },
   {
     input: 'src/index.js',
@@ -17,6 +24,6 @@ export default [
       file: 'dist/mjs/wallet.js',
       format: 'esm',
     },
-    external: ['@noble/hashes/sha2.js', '@noble/hashes/sha3', '@noble/hashes/utils', '@noble/hashes/utils.js', '@theqrl/mldsa87', 'randombytes'],
+    external: [...nobleExternal, ...otherExternal],
   },
 ];

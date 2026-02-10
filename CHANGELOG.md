@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/theQRL/wallet.js/compare/v1.1.0...v1.1.1) (2026-02-10)
+
+### Bug Fixes
+
+* dep update and fix eslint nits ([002831c](https://github.com/theQRL/wallet.js/commit/002831c02ed0e74bce3a54780b3280b6f8676201))
+
 ## [1.1.0](https://github.com/theQRL/wallet.js/compare/v1.0.6...v1.1.0) (2026-02-10)
 
 ### Features

@@ -47,12 +47,9 @@ jobs:
           node-version: '22.x'
           registry-url: 'https://registry.npmjs.org/'
 
-      - name: Clean npm cache (workaround for npm bug with optional dependencies)
-        run: npm cache clean --force
-
-      - name: Install dependencies (using npm install due to npm ci bug with optional dependencies)
+      - name: Install dependencies
         run: |
-          rm -rf node_modules
+          rm -rf node_modules package-lock.json
           npm install
 
       - name: Build
@@ -212,12 +209,9 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Clean npm cache (workaround for npm bug with optional dependencies)
-        run: npm cache clean --force
-
-      - name: Install dependencies (using npm install due to npm ci bug with optional dependencies)
+      - name: Install dependencies
         run: |
-          rm -rf node_modules
+          rm -rf node_modules package-lock.json
           npm install
 
       - name: Build

@@ -70,7 +70,7 @@ function mnemonicToBin(mnemonic) {
   }
 
   if (buffering > 0) {
-    result[resultIndex++] = current & 0xff;
+    result[resultIndex] = current & 0xff;
   }
 
   return result;

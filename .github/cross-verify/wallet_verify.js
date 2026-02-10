@@ -6,7 +6,7 @@
 import fs from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { hexToBytes } from '@noble/hashes/utils';
+import { hexToBytes } from '@noble/hashes/utils.js';
 import { Wallet } from '../../src/wallet/ml_dsa_87/wallet.js';
 
 async function main() {

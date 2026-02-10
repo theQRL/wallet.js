@@ -16,8 +16,8 @@
  * This file provides explicit cross-implementation verification.
  */
 import { expect } from 'chai';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { shake256 } from '@noble/hashes/sha3';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
+import { shake256 } from '@noble/hashes/sha3.js';
 import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
 import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
 import { ADDRESS_SIZE, DESCRIPTOR_SIZE } from '../../src/wallet/common/constants.js';

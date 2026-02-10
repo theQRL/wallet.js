@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { sha256 } from '@noble/hashes/sha2';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { Seed, ExtendedSeed } from '../../src/wallet/common/seed.js';
 import { SEED_SIZE, EXTENDED_SEED_SIZE } from '../../src/wallet/common/constants.js';
 import { getDescriptorBytes, Descriptor } from '../../src/wallet/common/descriptor.js';

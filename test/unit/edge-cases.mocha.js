@@ -3,7 +3,7 @@
  * WJ-TST-002: Missing edge case tests (empty message, max-length, boundary conditions)
  */
 import { expect } from 'chai';
-import { utf8ToBytes } from '@noble/hashes/utils';
+import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { CryptoBytes, CryptoPublicKeyBytes, CryptoSecretKeyBytes } from '@theqrl/mldsa87';
 import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
 import { sign, verify } from '../../src/wallet/ml_dsa_87/crypto.js';

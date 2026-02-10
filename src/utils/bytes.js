@@ -3,7 +3,7 @@
  * @module utils/bytes
  */
 
-import { hexToBytes } from '@noble/hashes/utils';
+import { hexToBytes } from '@noble/hashes/utils.js';
 
 /**
  * @param {unknown} input

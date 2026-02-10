@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { hexToBytes } from '@noble/hashes/utils';
+import { hexToBytes } from '@noble/hashes/utils.js';
 import { newWalletFromExtendedSeed } from '../../src/wallet/factory.js';
 import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
 import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';

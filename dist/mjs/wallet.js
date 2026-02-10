@@ -1,8 +1,7 @@
-import { shake256 } from '@noble/hashes/sha3';
+import { shake256 } from '@noble/hashes/sha3.js';
 import { CryptoPublicKeyBytes, cryptoSignKeypair, CryptoSecretKeyBytes, cryptoSign, CryptoBytes, cryptoSignVerify } from '@theqrl/mldsa87';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { hexToBytes } from '@noble/hashes/utils';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 
 /**
  * Constants used across wallet components.
@@ -257,10 +256,15 @@ function getDescriptorBytes(walletType, metadata = [0, 0]) {
   if (!isValidWalletType(walletType)) {
     throw new Error('Invalid wallet type in descriptor');
   }
+  const m0 = metadata?.[0] ?? 0;
+  const m1 = metadata?.[1] ?? 0;
+  if (!Number.isInteger(m0) || m0 < 0 || m0 > 255 || !Number.isInteger(m1) || m1 < 0 || m1 > 255) {
+    throw new Error('Descriptor metadata bytes must be in range [0, 255]');
+  }
   const out = new Uint8Array(DESCRIPTOR_SIZE);
   out[0] = walletType >>> 0;
-  out[1] = (metadata?.[0] ?? 0) >>> 0;
-  out[2] = (metadata?.[1] ?? 0) >>> 0;
+  out[1] = m0;
+  out[2] = m1;
   return out;
 }
 
@@ -293,6 +297,13 @@ class Seed {
    */
   toBytes() {
     return this.bytes.slice();
+  }
+
+  /**
+   * Best-effort zeroize internal seed bytes.
+   */
+  zeroize() {
+    this.bytes.fill(0);
   }
 
   /**
@@ -370,7 +381,11 @@ class ExtendedSeed {
     const out = new Uint8Array(EXTENDED_SEED_SIZE);
     out.set(desc.toBytes(), 0);
     out.set(seed.toBytes(), DESCRIPTOR_SIZE);
-    return new ExtendedSeed(out);
+    try {
+      return new ExtendedSeed(out);
+    } finally {
+      out.fill(0);
+    }
   }
 
   /**
@@ -380,6 +395,13 @@ class ExtendedSeed {
    */
   static from(input) {
     return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'));
+  }
+
+  /**
+   * Best-effort zeroize internal extended seed bytes.
+   */
+  zeroize() {
+    this.bytes.fill(0);
   }
 
   /**
@@ -411,61 +433,27 @@ function newMLDSA87Descriptor(metadata = [0, 0]) {
 
 /**
  * Secure random number generation for browser and Node.js environments.
+ * Requires Web Crypto API (globalThis.crypto.getRandomValues).
  * @module utils/random
  */
 
 const MAX_BYTES = 65536;
 
-function getGlobalScope() {
-  if (typeof globalThis === 'object') return globalThis;
-  // eslint-disable-next-line no-restricted-globals
-  if (typeof self === 'object') return self;
-  if (typeof window === 'object') return window;
-  if (typeof global === 'object') return global;
-  return {};
-}
-
 function getWebCrypto() {
-  const scope = getGlobalScope();
-  return scope.crypto || scope.msCrypto || null;
-}
-
-function getNodeRandomBytes() {
-  /* c8 ignore next */
-  const isNode = typeof process === 'object' && process !== null && process.versions && process.versions.node;
-  if (!isNode) return null;
-
-  let req = null;
-  if (typeof module !== 'undefined' && module && typeof module.require === 'function') {
-    req = module.require.bind(module);
-  } else if (typeof module !== 'undefined' && module && typeof module.createRequire === 'function') {
-    req = module.createRequire(import.meta.url);
-  } else if (typeof require === 'function') {
-    req = require;
-  }
-  if (!req) return null;
-
-  try {
-    const nodeCrypto = req('crypto');
-    if (nodeCrypto && typeof nodeCrypto.randomBytes === 'function') {
-      return nodeCrypto.randomBytes;
-    }
-  } catch {
-    return null;
-  }
-
+  if (typeof globalThis === 'object' && globalThis.crypto) return globalThis.crypto;
   return null;
 }
 
 /**
  * Generate cryptographically secure random bytes.
  *
- * Uses Web Crypto API (getRandomValues) in browsers and crypto.randomBytes in Node.js.
+ * Uses Web Crypto API (getRandomValues) exclusively.
+ * Throws if Web Crypto API is unavailable.
  *
  * @param {number} size - Number of random bytes to generate
  * @returns {Uint8Array} Random bytes
  * @throws {RangeError} If size is invalid or too large
- * @throws {Error} If no secure random source is available
+ * @throws {Error} If no secure random source is available or RNG output is suspect
  */
 function randomBytes(size) {
   if (!Number.isSafeInteger(size) || size < 0) {
@@ -478,12 +466,12 @@ function randomBytes(size) {
     for (let i = 0; i < size; i += MAX_BYTES) {
       cryptoObj.getRandomValues(out.subarray(i, Math.min(size, i + MAX_BYTES)));
     }
+    {
+      let acc = 0;
+      for (let i = 0; i < 16; i++) acc |= out[i];
+      if (acc === 0) throw new Error('getRandomValues returned all zeros');
+    }
     return out;
-  }
-
-  const nodeRandomBytes = getNodeRandomBytes();
-  if (nodeRandomBytes) {
-    return nodeRandomBytes(size);
   }
 
   throw new Error('Secure random number generation is not supported by this environment');
@@ -4695,8 +4683,12 @@ function keygen(seed) {
   const sk = new Uint8Array(CryptoSecretKeyBytes);
   // FIPS 204 requires 32-byte seed; hash 48-byte QRL seed to derive it
   const seedBytes = new Uint8Array(seed.hashSHA256());
-  cryptoSignKeypair(seedBytes, pk, sk);
-  return { pk, sk };
+  try {
+    cryptoSignKeypair(seedBytes, pk, sk);
+    return { pk, sk };
+  } finally {
+    seedBytes.fill(0);
+  }
 }
 
 /**
@@ -4789,9 +4781,13 @@ class Wallet {
   static newWallet(metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const seedBytes = randomBytes(48);
-    const seed = new Seed(seedBytes);
-    const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    try {
+      const seed = new Seed(seedBytes);
+      const { pk, sk } = keygen(seed);
+      return new Wallet({ descriptor, seed, pk, sk });
+    } finally {
+      seedBytes.fill(0);
+    }
   }
 
   /**
@@ -4822,8 +4818,12 @@ class Wallet {
    */
   static newWalletFromMnemonic(mnemonic) {
     const bin = mnemonicToBin(mnemonic);
-    const extendedSeed = new ExtendedSeed(bin);
-    return this.newWalletFromExtendedSeed(extendedSeed);
+    try {
+      const extendedSeed = new ExtendedSeed(bin);
+      return this.newWalletFromExtendedSeed(extendedSeed);
+    } finally {
+      bin.fill(0);
+    }
   }
 
   /** @returns {Uint8Array} */
@@ -4871,7 +4871,13 @@ class Wallet {
     return this.pk.slice();
   }
 
-  /** @returns {Uint8Array} */
+  /**
+   * Returns a copy of the secret key.
+   * @returns {Uint8Array}
+   * @warning Caller is responsible for zeroing the returned buffer when done
+   * (e.g. `sk.fill(0)`). The Wallet's `zeroize()` method cannot reach copies
+   * returned by this method.
+   */
   getSK() {
     return this.sk.slice();
   }
@@ -4908,11 +4914,11 @@ class Wallet {
     if (this.sk) {
       this.sk.fill(0);
     }
-    if (this.seed && this.seed.bytes) {
-      this.seed.bytes.fill(0);
+    if (this.seed) {
+      this.seed.zeroize();
     }
-    if (this.extendedSeed && this.extendedSeed.bytes) {
-      this.extendedSeed.bytes.fill(0);
+    if (this.extendedSeed) {
+      this.extendedSeed.zeroize();
     }
   }
 }

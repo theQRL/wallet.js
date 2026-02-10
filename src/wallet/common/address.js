@@ -11,7 +11,7 @@
  */
 
 /** @typedef {import('./descriptor.js').Descriptor} Descriptor */
-import { shake256 } from '@noble/hashes/sha3';
+import { shake256 } from '@noble/hashes/sha3.js';
 import { CryptoPublicKeyBytes } from '@theqrl/mldsa87';
 import { ADDRESS_SIZE } from './constants.js';
 

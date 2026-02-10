@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { hexToBytes, bytesToHex } from '@noble/hashes/utils';
+import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 import { CryptoPublicKeyBytes } from '@theqrl/mldsa87';
 import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
 import { addressToString, getAddressFromPKAndDescriptor } from '../../src/wallet/common/address.js';

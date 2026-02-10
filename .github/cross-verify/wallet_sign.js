@@ -4,7 +4,7 @@
  * Outputs: seed, public key, message, and signature in hex format.
  */
 import fs from 'fs';
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { Wallet } from '../../src/wallet/ml_dsa_87/wallet.js';
 import { Seed } from '../../src/wallet/common/seed.js';
 

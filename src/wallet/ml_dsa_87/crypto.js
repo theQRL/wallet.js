@@ -62,8 +62,7 @@ function sign(sk, message) {
   }
 
   const sm = cryptoSign(message, sk);
-  let signature = new Uint8Array(CryptoBytes);
-  signature = sm.slice(0, CryptoBytes);
+  const signature = sm.slice(0, CryptoBytes);
   return signature;
 }
 

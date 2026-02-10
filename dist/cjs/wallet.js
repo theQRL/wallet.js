@@ -4659,7 +4659,7 @@ function mnemonicToBin(mnemonic) {
   }
 
   if (buffering > 0) {
-    result[resultIndex++] = current & 0xff;
+    result[resultIndex] = current & 0xff;
   }
 
   return result;
@@ -4721,8 +4721,7 @@ function sign(sk, message) {
   }
 
   const sm = mldsa87.cryptoSign(message, sk);
-  let signature = new Uint8Array(mldsa87.CryptoBytes);
-  signature = sm.slice(0, mldsa87.CryptoBytes);
+  const signature = sm.slice(0, mldsa87.CryptoBytes);
   return signature;
 }
 

@@ -68,6 +68,15 @@
   "overrides": {
     "eslint-plugin-import-x": {
       "eslint": "$eslint"
+    },
+    "serialize-javascript": "^7.0.3",
+    "minimatch": "10.2.4",
+    "glob": "^13.0.6",
+    "tar": "^7.5.9",
+    "diff": "^8.0.3",
+    "npm": {
+      ".": "^11.11.0",
+      "minimatch": "10.2.4"
     }
   }
 }

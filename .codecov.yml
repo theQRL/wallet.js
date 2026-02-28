@@ -1,0 +1,27 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+ignore:
+  - "scripts/**/*"
+  - "dist/**/*"
+  - "test/**/*"
+  - "browser-tests/**/*"
+
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+  individual_components:
+    - component_id: wallet
+      name: wallet
+      paths:
+        - src/**/*

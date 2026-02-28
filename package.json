@@ -37,6 +37,21 @@
     "lib": "src",
     "test": "test"
   },
+  "c8": {
+    "include": [
+      "src/**/*.js"
+    ],
+    "exclude": [
+      "scripts/**",
+      "dist/**",
+      "test/**",
+      "browser-tests/**"
+    ],
+    "all": true,
+    "src": [
+      "src"
+    ]
+  },
   "files": [
     "dist",
     "src",

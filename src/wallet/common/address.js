@@ -58,7 +58,9 @@ function stringToAddress(addrStr) {
 }
 
 /**
- * Check if a string is a valid QRL address format.
+ * Check if a string is a valid QRL address format (structure only).
+ * QRL addresses contain no checksum — any well-formed Q + 40 hex string passes.
+ * Applications should add their own confirmation or checksum layer.
  * @param {string} addrStr - Address string to validate.
  * @returns {boolean} True if valid address format.
  */

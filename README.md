@@ -118,7 +118,7 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 
 **Address Format:** `Q` prefix + 40 lowercase hex characters (41 chars total).
 - Output is always lowercase; input parsing is case-insensitive
-- No checksum encoding (unlike EIP-55)
+- No checksum encoding (unlike EIP-55) — `isValidAddress()` checks format only, not correctness. A single mistyped character will produce a valid but unrelated address. Applications should implement their own checksum or confirmation UX to guard against transcription errors. See [SECURITY.md](SECURITY.md#address-security) for recommendations.
 
 ```javascript
 import {
@@ -134,9 +134,9 @@ const addrStr = addressToString(addressBytes); // 'Qabc...'
 const addrBytes = stringToAddress('Qabc123...');
 const same = stringToAddress('QABC123...');  // Also valid
 
-// Validate address format
+// Validate address format (structure only — no checksum)
 if (isValidAddress(userInput)) {
-  // Safe to use
+  // Format is valid, but confirm with the user before transacting
 }
 ```
 
@@ -170,7 +170,8 @@ See [SECURITY.md](SECURITY.md) for the security model and best practices.
 **Important:**
 - Always call `wallet.zeroize()` when done
 - Never log or transmit mnemonics/seeds
-- Validate addresses with `isValidAddress()` before use
+- Neither mnemonics nor addresses include a built-in checksum — application-layer verification is recommended (see [SECURITY.md](SECURITY.md) for details)
+- Validate addresses with `isValidAddress()` before use (format check only)
 
 ## Browser Usage
 
@@ -207,5 +208,5 @@ This library currently supports **ML-DSA-87** (FIPS 204), the NIST standardized 
 - **Not supported**: Internet Explorer, Node.js < 20, or environments without Web Crypto API
 
 ## License
+
 [MIT](LICENSE)
-MIT

@@ -4,8 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.2.x   | Yes       |
-| < 0.2   | No        |
+| 1.x     | Yes       |
+| < 1.0   | No        |
 
 ## Reporting Vulnerabilities
 
@@ -79,11 +79,35 @@ Addresses are 20 bytes, displayed with a `Q` prefix in hexadecimal (41 character
    }
    ```
 
-2. **Visual Confirmation:**
-   Always display the derived address to the user after restore and require explicit confirmation.
+2. **Full Address Verification:**
+   Wherever addresses are displayed or confirmed — wallet restore, transaction signing, address book entries — always show the **complete** address. Do not truncate to first/last characters — address-poisoning and dusting attacks exploit partial matching to trick users into confirming an attacker-controlled address.
 
-3. **Partial Address Display:**
-   Show the first/last few characters of the expected address during restore for visual verification.
+---
+
+## Address Security
+
+### No Built-in Checksum
+
+**Important:** QRL addresses do not include a checksum (unlike EIP-55 mixed-case encoding in Ethereum). `isValidAddress()` only checks the structural format — `Q` prefix followed by 40 hex characters — it cannot detect a mistyped or truncated address.
+
+**Implications:**
+- Any 20-byte hex value with a `Q` prefix passes validation
+- A single character error produces a valid but unrelated address
+- Funds sent to a mistyped address are unrecoverable
+
+**Recommended Application-Level Mitigations:**
+
+1. **Address Book / Whitelist:**
+   Maintain a list of known-good addresses and warn users when sending to an address not in their address book.
+
+2. **Full Address Verification:**
+   Always display the **complete** address and require explicit user confirmation before signing a transaction. Never truncate to first/last characters — address-poisoning and dusting attacks deliberately generate addresses that match a target's prefix and suffix to exploit partial visual checks.
+
+3. **Application-Layer Checksums:**
+   Applications that store or transmit addresses may add their own checksum envelope (e.g. CRC32, Base58Check, or Bech32) to detect transcription errors before submitting a transaction. This is intentionally left to the application layer so that different transports can choose the scheme best suited to their context.
+
+4. **Second-Step Verification:**
+   For high-value transactions, implement a secondary confirmation channel (e.g. displaying the address on a separate device, QR code cross-check, or out-of-band confirmation) to guard against clipboard hijacking and address substitution attacks.
 
 ---
 
@@ -144,8 +168,8 @@ This is by design for FIPS 204 compliance and go-qrllib cross-implementation com
 | `new Seed(bytes)` | Exactly 48 bytes |
 | `new ExtendedSeed(bytes)` | Exactly 51 bytes, valid wallet type |
 | `new Descriptor(bytes)` | Exactly 3 bytes, valid wallet type |
-| `sign(sk, message)` | sk is Uint8Array of correct length, message is Uint8Array |
-| `verify(sig, msg, pk)` | All inputs are Uint8Array of correct lengths |
+| `wallet.sign(message)` | message is Uint8Array |
+| `MLDSA87.verify(sig, msg, pk)` | All inputs are Uint8Array of correct lengths |
 | `stringToAddress(str)` | Starts with Q, 40 hex characters |
 
 ### Error Handling
@@ -166,11 +190,9 @@ try {
 
 ## Randomness
 
-Seed generation uses the `randombytes` package:
-- Node.js: Uses `crypto.randomBytes()` (CSPRNG)
-- Browser: Uses `crypto.getRandomValues()` (Web Crypto API)
+Seed generation uses the Web Crypto API exclusively (`globalThis.crypto.getRandomValues`). This is a cryptographically secure random number generator available in both Node.js (20.19+) and modern browsers.
 
-Both are cryptographically secure random number generators.
+An additional sanity check rejects output that is all zeros for buffers of 16 bytes or more.
 
 ---
 
@@ -178,9 +200,32 @@ Both are cryptographically secure random number generators.
 
 Timing side-channel resistance depends on the underlying `@theqrl/mldsa87` implementation.
 
-The mldsa87 package:
-- Uses constant-time comparison for signature verification
-- Follows FIPS 204 specification
+### Constant-Time Verification
+
+Signature verification uses constant-time comparison to prevent timing attacks:
+
+```javascript
+// From @theqrl/mldsa87 cryptoSignVerify:
+let diff = 0;
+for (i = 0; i < CTILDEBytes; ++i) {
+  diff |= c[i] ^ c2[i];
+}
+return diff === 0;
+```
+
+### Timing Considerations for Arithmetic Operations
+
+The Montgomery reduction and other arithmetic operations in `@theqrl/mldsa87` use JavaScript's `BigInt` type. **Important**: The JavaScript specification does not guarantee that `BigInt` operations are constant-time. The execution time of operations like multiplication and division may vary based on operand values.
+
+**Implications:**
+- Signing operations that use these arithmetic functions may have timing variations
+- This is a known limitation of JavaScript cryptographic implementations
+- Signature verification uses constant-time comparison (see above), which is the critical path for timing attacks
+
+**Mitigations for sensitive deployments:**
+- For applications with strict constant-time requirements, consider using the Go implementation ([go-qrllib](https://github.com/theQRL/go-qrllib)) which provides better timing guarantees
+- Rate-limit signature operations at the application layer to reduce timing attack feasibility
+- Run signing operations in isolated environments where timing cannot be observed
 
 ---
 
@@ -190,7 +235,6 @@ The mldsa87 package:
 |---------|---------|----------------|
 | `@theqrl/mldsa87` | ML-DSA-87 signatures | Audited; FIPS 204 compliant |
 | `@noble/hashes` | SHA-256, SHAKE-256 | Widely audited; constant-time |
-| `randombytes` | Secure random generation | Uses platform CSPRNG |
 
 ---
 

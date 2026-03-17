@@ -22,6 +22,408 @@ const EXTENDED_SEED_SIZE = DESCRIPTOR_SIZE + SEED_SIZE;
  * @todo re-check https://issues.chromium.org/issues/42212588
  * @module
  */
+const U32_MASK64$1 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
+const _32n$1 = /* @__PURE__ */ BigInt(32);
+function fromBig$1(n, le = false) {
+    if (le)
+        return { h: Number(n & U32_MASK64$1), l: Number((n >> _32n$1) & U32_MASK64$1) };
+    return { h: Number((n >> _32n$1) & U32_MASK64$1) | 0, l: Number(n & U32_MASK64$1) | 0 };
+}
+function split$1(lst, le = false) {
+    const len = lst.length;
+    let Ah = new Uint32Array(len);
+    let Al = new Uint32Array(len);
+    for (let i = 0; i < len; i++) {
+        const { h, l } = fromBig$1(lst[i], le);
+        [Ah[i], Al[i]] = [h, l];
+    }
+    return [Ah, Al];
+}
+// Left rotate for Shift in [1, 32)
+const rotlSH$1 = (h, l, s) => (h << s) | (l >>> (32 - s));
+const rotlSL$1 = (h, l, s) => (l << s) | (h >>> (32 - s));
+// Left rotate for Shift in (32, 64), NOTE: 32 is special case.
+const rotlBH$1 = (h, l, s) => (l << (s - 32)) | (h >>> (64 - s));
+const rotlBL$1 = (h, l, s) => (h << (s - 32)) | (l >>> (64 - s));
+
+/**
+ * Utilities for hex, bytes, CSPRNG.
+ * @module
+ */
+/*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+/** Checks if something is Uint8Array. Be careful: nodejs Buffer will return true. */
+function isBytes$2(a) {
+    return a instanceof Uint8Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint8Array');
+}
+/** Asserts something is positive integer. */
+function anumber$1(n, title = '') {
+    if (!Number.isSafeInteger(n) || n < 0) {
+        const prefix = title && `"${title}" `;
+        throw new Error(`${prefix}expected integer >= 0, got ${n}`);
+    }
+}
+/** Asserts something is Uint8Array. */
+function abytes$1(value, length, title = '') {
+    const bytes = isBytes$2(value);
+    const len = value?.length;
+    const needsLen = length !== undefined;
+    if (!bytes || (needsLen)) {
+        const prefix = title && `"${title}" `;
+        const ofLen = '';
+        const got = bytes ? `length=${len}` : `type=${typeof value}`;
+        throw new Error(prefix + 'expected Uint8Array' + ofLen + ', got ' + got);
+    }
+    return value;
+}
+/** Asserts a hash instance has not been destroyed / finished */
+function aexists$1(instance, checkFinished = true) {
+    if (instance.destroyed)
+        throw new Error('Hash instance has been destroyed');
+    if (checkFinished && instance.finished)
+        throw new Error('Hash#digest() has already been called');
+}
+/** Asserts output is properly-sized byte array */
+function aoutput$1(out, instance) {
+    abytes$1(out, undefined, 'digestInto() output');
+    const min = instance.outputLen;
+    if (out.length < min) {
+        throw new Error('"digestInto() output" expected to be of length >=' + min);
+    }
+}
+/** Cast u8 / u16 / u32 to u32. */
+function u32$1(arr) {
+    return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+}
+/** Zeroize a byte array. Warning: JS provides no guarantees. */
+function clean$1(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+        arrays[i].fill(0);
+    }
+}
+/** Create DataView of an array for easy byte-level manipulation. */
+function createView(arr) {
+    return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+}
+/** The rotate right (circular right shift) operation for uint32 */
+function rotr(word, shift) {
+    return (word << (32 - shift)) | (word >>> shift);
+}
+/** Is current platform little-endian? Most are. Big-Endian platform: IBM */
+const isLE$1 = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44)();
+/** The byte swap operation for uint32 */
+function byteSwap$1(word) {
+    return (((word << 24) & 0xff000000) |
+        ((word << 8) & 0xff0000) |
+        ((word >>> 8) & 0xff00) |
+        ((word >>> 24) & 0xff));
+}
+/** In place byte swap for Uint32Array */
+function byteSwap32$1(arr) {
+    for (let i = 0; i < arr.length; i++) {
+        arr[i] = byteSwap$1(arr[i]);
+    }
+    return arr;
+}
+const swap32IfBE$1 = isLE$1
+    ? (u) => u
+    : byteSwap32$1;
+// Built-in hex conversion https://caniuse.com/mdn-javascript_builtins_uint8array_fromhex
+const hasHexBuiltin$1 = /* @__PURE__ */ (() => 
+// @ts-ignore
+typeof Uint8Array.from([]).toHex === 'function' && typeof Uint8Array.fromHex === 'function')();
+// Array where index 0xf0 (240) is mapped to string 'f0'
+const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+/**
+ * Convert byte array to hex string. Uses built-in function, when available.
+ * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
+ */
+function bytesToHex(bytes) {
+    abytes$1(bytes);
+    // @ts-ignore
+    if (hasHexBuiltin$1)
+        return bytes.toHex();
+    // pre-caching improves the speed 6x
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += hexes[bytes[i]];
+    }
+    return hex;
+}
+// We use optimized technique to convert hex string to byte array
+const asciis$1 = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };
+function asciiToBase16$1(ch) {
+    if (ch >= asciis$1._0 && ch <= asciis$1._9)
+        return ch - asciis$1._0; // '2' => 50-48
+    if (ch >= asciis$1.A && ch <= asciis$1.F)
+        return ch - (asciis$1.A - 10); // 'B' => 66-(65-10)
+    if (ch >= asciis$1.a && ch <= asciis$1.f)
+        return ch - (asciis$1.a - 10); // 'b' => 98-(97-10)
+    return;
+}
+/**
+ * Convert hex string to byte array. Uses built-in function, when available.
+ * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])
+ */
+function hexToBytes$2(hex) {
+    if (typeof hex !== 'string')
+        throw new Error('hex string expected, got ' + typeof hex);
+    // @ts-ignore
+    if (hasHexBuiltin$1)
+        return Uint8Array.fromHex(hex);
+    const hl = hex.length;
+    const al = hl / 2;
+    if (hl % 2)
+        throw new Error('hex string expected, got unpadded hex of length ' + hl);
+    const array = new Uint8Array(al);
+    for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
+        const n1 = asciiToBase16$1(hex.charCodeAt(hi));
+        const n2 = asciiToBase16$1(hex.charCodeAt(hi + 1));
+        if (n1 === undefined || n2 === undefined) {
+            const char = hex[hi] + hex[hi + 1];
+            throw new Error('hex string expected, got non-hex character "' + char + '" at index ' + hi);
+        }
+        array[ai] = n1 * 16 + n2; // multiply first octet, e.g. 'a3' => 10*16+3 => 160 + 3 => 163
+    }
+    return array;
+}
+/** Creates function with outputLen, blockLen, create properties from a class constructor. */
+function createHasher$1(hashCons, info = {}) {
+    const hashC = (msg, opts) => hashCons(opts).update(msg).digest();
+    const tmp = hashCons(undefined);
+    hashC.outputLen = tmp.outputLen;
+    hashC.blockLen = tmp.blockLen;
+    hashC.create = (opts) => hashCons(opts);
+    Object.assign(hashC, info);
+    return Object.freeze(hashC);
+}
+/** Creates OID opts for NIST hashes, with prefix 06 09 60 86 48 01 65 03 04 02. */
+const oidNist$1 = (suffix) => ({
+    oid: Uint8Array.from([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, suffix]),
+});
+
+/**
+ * SHA3 (keccak) hash function, based on a new "Sponge function" design.
+ * Different from older hashes, the internal state is bigger than output size.
+ *
+ * Check out [FIPS-202](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf),
+ * [Website](https://keccak.team/keccak.html),
+ * [the differences between SHA-3 and Keccak](https://crypto.stackexchange.com/questions/15727/what-are-the-key-differences-between-the-draft-sha-3-standard-and-the-keccak-sub).
+ *
+ * Check out `sha3-addons` module for cSHAKE, k12, and others.
+ * @module
+ */
+// No __PURE__ annotations in sha3 header:
+// EVERYTHING is in fact used on every export.
+// Various per round constants calculations
+const _0n$1 = BigInt(0);
+const _1n$1 = BigInt(1);
+const _2n$1 = BigInt(2);
+const _7n$1 = BigInt(7);
+const _256n$1 = BigInt(256);
+const _0x71n$1 = BigInt(0x71);
+const SHA3_PI$1 = [];
+const SHA3_ROTL$1 = [];
+const _SHA3_IOTA$1 = []; // no pure annotation: var is always used
+for (let round = 0, R = _1n$1, x = 1, y = 0; round < 24; round++) {
+    // Pi
+    [x, y] = [y, (2 * x + 3 * y) % 5];
+    SHA3_PI$1.push(2 * (5 * y + x));
+    // Rotational
+    SHA3_ROTL$1.push((((round + 1) * (round + 2)) / 2) % 64);
+    // Iota
+    let t = _0n$1;
+    for (let j = 0; j < 7; j++) {
+        R = ((R << _1n$1) ^ ((R >> _7n$1) * _0x71n$1)) % _256n$1;
+        if (R & _2n$1)
+            t ^= _1n$1 << ((_1n$1 << BigInt(j)) - _1n$1);
+    }
+    _SHA3_IOTA$1.push(t);
+}
+const IOTAS$1 = split$1(_SHA3_IOTA$1, true);
+const SHA3_IOTA_H$1 = IOTAS$1[0];
+const SHA3_IOTA_L$1 = IOTAS$1[1];
+// Left rotation (without 0, 32, 64)
+const rotlH$1 = (h, l, s) => (s > 32 ? rotlBH$1(h, l, s) : rotlSH$1(h, l, s));
+const rotlL$1 = (h, l, s) => (s > 32 ? rotlBL$1(h, l, s) : rotlSL$1(h, l, s));
+/** `keccakf1600` internal function, additionally allows to adjust round count. */
+function keccakP$1(s, rounds = 24) {
+    const B = new Uint32Array(5 * 2);
+    // NOTE: all indices are x2 since we store state as u32 instead of u64 (bigints to slow in js)
+    for (let round = 24 - rounds; round < 24; round++) {
+        // Theta θ
+        for (let x = 0; x < 10; x++)
+            B[x] = s[x] ^ s[x + 10] ^ s[x + 20] ^ s[x + 30] ^ s[x + 40];
+        for (let x = 0; x < 10; x += 2) {
+            const idx1 = (x + 8) % 10;
+            const idx0 = (x + 2) % 10;
+            const B0 = B[idx0];
+            const B1 = B[idx0 + 1];
+            const Th = rotlH$1(B0, B1, 1) ^ B[idx1];
+            const Tl = rotlL$1(B0, B1, 1) ^ B[idx1 + 1];
+            for (let y = 0; y < 50; y += 10) {
+                s[x + y] ^= Th;
+                s[x + y + 1] ^= Tl;
+            }
+        }
+        // Rho (ρ) and Pi (π)
+        let curH = s[2];
+        let curL = s[3];
+        for (let t = 0; t < 24; t++) {
+            const shift = SHA3_ROTL$1[t];
+            const Th = rotlH$1(curH, curL, shift);
+            const Tl = rotlL$1(curH, curL, shift);
+            const PI = SHA3_PI$1[t];
+            curH = s[PI];
+            curL = s[PI + 1];
+            s[PI] = Th;
+            s[PI + 1] = Tl;
+        }
+        // Chi (χ)
+        for (let y = 0; y < 50; y += 10) {
+            for (let x = 0; x < 10; x++)
+                B[x] = s[y + x];
+            for (let x = 0; x < 10; x++)
+                s[y + x] ^= ~B[(x + 2) % 10] & B[(x + 4) % 10];
+        }
+        // Iota (ι)
+        s[0] ^= SHA3_IOTA_H$1[round];
+        s[1] ^= SHA3_IOTA_L$1[round];
+    }
+    clean$1(B);
+}
+/** Keccak sponge function. */
+let Keccak$1 = class Keccak {
+    state;
+    pos = 0;
+    posOut = 0;
+    finished = false;
+    state32;
+    destroyed = false;
+    blockLen;
+    suffix;
+    outputLen;
+    enableXOF = false;
+    rounds;
+    // NOTE: we accept arguments in bytes instead of bits here.
+    constructor(blockLen, suffix, outputLen, enableXOF = false, rounds = 24) {
+        this.blockLen = blockLen;
+        this.suffix = suffix;
+        this.outputLen = outputLen;
+        this.enableXOF = enableXOF;
+        this.rounds = rounds;
+        // Can be passed from user as dkLen
+        anumber$1(outputLen, 'outputLen');
+        // 1600 = 5x5 matrix of 64bit.  1600 bits === 200 bytes
+        // 0 < blockLen < 200
+        if (!(0 < blockLen && blockLen < 200))
+            throw new Error('only keccak-f1600 function is supported');
+        this.state = new Uint8Array(200);
+        this.state32 = u32$1(this.state);
+    }
+    clone() {
+        return this._cloneInto();
+    }
+    keccak() {
+        swap32IfBE$1(this.state32);
+        keccakP$1(this.state32, this.rounds);
+        swap32IfBE$1(this.state32);
+        this.posOut = 0;
+        this.pos = 0;
+    }
+    update(data) {
+        aexists$1(this);
+        abytes$1(data);
+        const { blockLen, state } = this;
+        const len = data.length;
+        for (let pos = 0; pos < len;) {
+            const take = Math.min(blockLen - this.pos, len - pos);
+            for (let i = 0; i < take; i++)
+                state[this.pos++] ^= data[pos++];
+            if (this.pos === blockLen)
+                this.keccak();
+        }
+        return this;
+    }
+    finish() {
+        if (this.finished)
+            return;
+        this.finished = true;
+        const { state, suffix, pos, blockLen } = this;
+        // Do the padding
+        state[pos] ^= suffix;
+        if ((suffix & 0x80) !== 0 && pos === blockLen - 1)
+            this.keccak();
+        state[blockLen - 1] ^= 0x80;
+        this.keccak();
+    }
+    writeInto(out) {
+        aexists$1(this, false);
+        abytes$1(out);
+        this.finish();
+        const bufferOut = this.state;
+        const { blockLen } = this;
+        for (let pos = 0, len = out.length; pos < len;) {
+            if (this.posOut >= blockLen)
+                this.keccak();
+            const take = Math.min(blockLen - this.posOut, len - pos);
+            out.set(bufferOut.subarray(this.posOut, this.posOut + take), pos);
+            this.posOut += take;
+            pos += take;
+        }
+        return out;
+    }
+    xofInto(out) {
+        // Sha3/Keccak usage with XOF is probably mistake, only SHAKE instances can do XOF
+        if (!this.enableXOF)
+            throw new Error('XOF is not possible for this instance');
+        return this.writeInto(out);
+    }
+    xof(bytes) {
+        anumber$1(bytes);
+        return this.xofInto(new Uint8Array(bytes));
+    }
+    digestInto(out) {
+        aoutput$1(out, this);
+        if (this.finished)
+            throw new Error('digest() was already called');
+        this.writeInto(out);
+        this.destroy();
+        return out;
+    }
+    digest() {
+        return this.digestInto(new Uint8Array(this.outputLen));
+    }
+    destroy() {
+        this.destroyed = true;
+        clean$1(this.state);
+    }
+    _cloneInto(to) {
+        const { blockLen, suffix, outputLen, rounds, enableXOF } = this;
+        to ||= new Keccak(blockLen, suffix, outputLen, enableXOF, rounds);
+        to.state32.set(this.state32);
+        to.pos = this.pos;
+        to.posOut = this.posOut;
+        to.finished = this.finished;
+        to.rounds = rounds;
+        // Suffix can change in cSHAKE
+        to.suffix = suffix;
+        to.outputLen = outputLen;
+        to.enableXOF = enableXOF;
+        to.destroyed = this.destroyed;
+        return to;
+    }
+};
+const genShake$1 = (suffix, blockLen, outputLen, info = {}) => createHasher$1((opts = {}) => new Keccak$1(blockLen, suffix, opts.dkLen === undefined ? outputLen : opts.dkLen, true), info);
+/** SHAKE256 XOF with 256-bit security. */
+const shake256$1 = 
+/* @__PURE__ */
+genShake$1(0x1f, 136, 32, /* @__PURE__ */ oidNist$1(0x0c));
+
+/**
+ * Internal helpers for u64. BigUint64Array is too slow as per 2025, so we implement it using Uint32Array.
+ * @todo re-check https://issues.chromium.org/issues/42212588
+ * @module
+ */
 const U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
 const _32n = /* @__PURE__ */ BigInt(32);
 function fromBig(n, le = false) {
@@ -100,14 +502,6 @@ function clean(...arrays) {
         arrays[i].fill(0);
     }
 }
-/** Create DataView of an array for easy byte-level manipulation. */
-function createView(arr) {
-    return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
-}
-/** The rotate right (circular right shift) operation for uint32 */
-function rotr(word, shift) {
-    return (word << (32 - shift)) | (word >>> shift);
-}
 /** Is current platform little-endian? Most are. Big-Endian platform: IBM */
 const isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44)();
 /** The byte swap operation for uint32 */
@@ -131,24 +525,6 @@ const swap32IfBE = isLE
 const hasHexBuiltin = /* @__PURE__ */ (() => 
 // @ts-ignore
 typeof Uint8Array.from([]).toHex === 'function' && typeof Uint8Array.fromHex === 'function')();
-// Array where index 0xf0 (240) is mapped to string 'f0'
-const hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
-/**
- * Convert byte array to hex string. Uses built-in function, when available.
- * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'
- */
-function bytesToHex(bytes) {
-    abytes(bytes);
-    // @ts-ignore
-    if (hasHexBuiltin)
-        return bytes.toHex();
-    // pre-caching improves the speed 6x
-    let hex = '';
-    for (let i = 0; i < bytes.length; i++) {
-        hex += hexes[bytes[i]];
-    }
-    return hex;
-}
 // We use optimized technique to convert hex string to byte array
 const asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };
 function asciiToBase16(ch) {
@@ -596,7 +972,7 @@ function cAddQ(a) {
 
 function ntt(a) {
   let k = 0;
-  let j = 0;
+  let j;
 
   for (let len = 128; len > 0; len >>= 1) {
     for (let start = 0; start < N; start = j + len) {
@@ -612,7 +988,7 @@ function ntt(a) {
 
 function invNTTToMont(a) {
   const f = 41978n; // mont^2/256
-  let j = 0;
+  let j;
   let k = 256;
 
   for (let len = 1; len < N; len <<= 1) {
@@ -1512,13 +1888,6 @@ function zeroize(buffer) {
 }
 
 /**
- * Default signing context ("ZOND" in ASCII).
- * Used for domain separation per FIPS 204.
- * @constant {Uint8Array}
- */
-const DEFAULT_CTX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // "ZOND"
-
-/**
  * Convert hex string to Uint8Array with strict validation.
  *
  * NOTE: This function accepts multiple hex formats (with/without 0x prefix,
@@ -1591,9 +1960,9 @@ function cryptoSignKeypair(passedSeed, pk, sk) {
     }
   } catch (e) {
     if (e instanceof TypeError) {
-      throw new Error(`pk/sk cannot be null`);
+      throw new Error(`pk/sk cannot be null`, { cause: e });
     } else {
-      throw new Error(`${e.message}`);
+      throw new Error(`${e.message}`, { cause: e });
     }
   }
 
@@ -1672,10 +2041,9 @@ function cryptoSignKeypair(passedSeed, pk, sk) {
  * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes = 4896 bytes)
  * @param {boolean} randomizedSigning - If true, use random nonce for hedged signing.
  *   If false, use deterministic nonce derived from message and key.
- * @param {Uint8Array} [ctx=DEFAULT_CTX] - Context string for domain separation (max 255 bytes).
- *   Defaults to "ZOND" for QRL compatibility.
+ * @param {Uint8Array} ctx - Context string for domain separation (max 255 bytes).
  * @returns {number} 0 on success
- * @throws {Error} If sk is wrong size or context exceeds 255 bytes
+ * @throws {Error} If ctx is missing, sk is wrong size, or context exceeds 255 bytes
  *
  * @example
  * const sig = new Uint8Array(CryptoBytes);
@@ -1683,9 +2051,12 @@ function cryptoSignKeypair(passedSeed, pk, sk) {
  * // Or with custom context:
  * cryptoSignSignature(sig, message, sk, false, new Uint8Array([0x01, 0x02]));
  */
-function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx = DEFAULT_CTX) {
+function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
   if (!sig || sig.length < CryptoBytes) {
     throw new Error(`sig must be at least ${CryptoBytes} bytes`);
+  }
+  if (!(ctx instanceof Uint8Array)) {
+    throw new TypeError('ctx is required and must be a Uint8Array');
   }
   if (ctx.length > 255) throw new Error(`invalid context length: ${ctx.length} (max 255)`);
   if (sk.length !== CryptoSecretKeyBytes) {
@@ -1813,16 +2184,15 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx = DEFAULT_CTX) {
  * @param {string|Uint8Array} msg - Message to sign (hex string, optional 0x prefix, or Uint8Array)
  * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes = 4896 bytes)
  * @param {boolean} randomizedSigning - If true, use random nonce; if false, deterministic
- * @param {Uint8Array} [ctx=DEFAULT_CTX] - Context string for domain separation (max 255 bytes).
- *   Defaults to "ZOND" for QRL compatibility.
+ * @param {Uint8Array} ctx - Context string for domain separation (max 255 bytes).
  * @returns {Uint8Array} Signed message (CryptoBytes + msg.length bytes)
  * @throws {Error} If signing fails
  *
  * @example
- * const signedMsg = cryptoSign(message, sk, false);
+ * const signedMsg = cryptoSign(message, sk, false, ctx);
  * // signedMsg contains: signature (4627 bytes) || message
  */
-function cryptoSign(msg, sk, randomizedSigning, ctx = DEFAULT_CTX) {
+function cryptoSign(msg, sk, randomizedSigning, ctx) {
   const msgBytes = messageToBytes(msg);
 
   const sm = new Uint8Array(CryptoBytes + msgBytes.length);
@@ -1849,17 +2219,19 @@ function cryptoSign(msg, sk, randomizedSigning, ctx = DEFAULT_CTX) {
  * @param {Uint8Array} sig - Signature to verify (must be CryptoBytes = 4627 bytes)
  * @param {string|Uint8Array} m - Message that was signed (hex string, optional 0x prefix, or Uint8Array)
  * @param {Uint8Array} pk - Public key (must be CryptoPublicKeyBytes = 2592 bytes)
- * @param {Uint8Array} [ctx=DEFAULT_CTX] - Context string used during signing (max 255 bytes).
- *   Defaults to "ZOND" for QRL compatibility.
+ * @param {Uint8Array} ctx - Context string used during signing (max 255 bytes).
  * @returns {boolean} true if signature is valid, false otherwise
  *
  * @example
- * const isValid = cryptoSignVerify(signature, message, pk);
+ * const isValid = cryptoSignVerify(signature, message, pk, ctx);
  * if (!isValid) {
  *   throw new Error('Invalid signature');
  * }
  */
-function cryptoSignVerify(sig, m, pk, ctx = DEFAULT_CTX) {
+function cryptoSignVerify(sig, m, pk, ctx) {
+  if (!(ctx instanceof Uint8Array)) {
+    throw new TypeError('ctx is required and must be a Uint8Array');
+  }
   if (ctx.length > 255) return false;
   let i;
   const buf = new Uint8Array(K * PolyW1PackedBytes);
@@ -1995,7 +2367,9 @@ function stringToAddress(addrStr) {
 }
 
 /**
- * Check if a string is a valid QRL address format.
+ * Check if a string is a valid QRL address format (structure only).
+ * QRL addresses contain no checksum — any well-formed Q + 40 hex string passes.
+ * Applications should add their own confirmation or checksum layer.
  * @param {string} addrStr - Address string to validate.
  * @returns {boolean} True if valid address format.
  */
@@ -2032,7 +2406,7 @@ function getAddressFromPKAndDescriptor(pk, descriptor) {
   const input = new Uint8Array(descBytes.length + pk.length);
   input.set(descBytes, 0);
   input.set(pk, descBytes.length);
-  return shake256.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
+  return shake256$1.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
 }
 
 /**
@@ -2072,8 +2446,8 @@ class HashMD {
         this.view = createView(this.buffer);
     }
     update(data) {
-        aexists(this);
-        abytes(data);
+        aexists$1(this);
+        abytes$1(data);
         const { view, buffer, blockLen } = this;
         const len = data.length;
         for (let pos = 0; pos < len;) {
@@ -2098,8 +2472,8 @@ class HashMD {
         return this;
     }
     digestInto(out) {
-        aexists(this);
-        aoutput(out, this);
+        aexists$1(this);
+        aoutput$1(out, this);
         this.finished = true;
         // Padding
         // We can avoid allocation of buffer for padding completely if it
@@ -2108,7 +2482,7 @@ class HashMD {
         let { pos } = this;
         // append the bit '1' to the message
         buffer[pos++] = 0b10000000;
-        clean(this.buffer.subarray(pos));
+        clean$1(this.buffer.subarray(pos));
         // we have less than padOffset left in buffer, so we cannot put length in
         // current block, need process it and pad again
         if (this.padOffset > blockLen - pos) {
@@ -2250,11 +2624,11 @@ class SHA2_32B extends HashMD {
         this.set(A, B, C, D, E, F, G, H);
     }
     roundClean() {
-        clean(SHA256_W);
+        clean$1(SHA256_W);
     }
     destroy() {
         this.set(0, 0, 0, 0, 0, 0, 0, 0);
-        clean(this.buffer);
+        clean$1(this.buffer);
     }
 }
 /** Internal SHA2-256 hash class. */
@@ -2281,8 +2655,8 @@ class _SHA256 extends SHA2_32B {
  * - Each sha256 hash is executing 2^18 bit operations.
  * - Good 2024 ASICs can do 200Th/sec with 3500 watts of power, corresponding to 2^36 hashes/joule.
  */
-const sha256 = /* @__PURE__ */ createHasher(() => new _SHA256(), 
-/* @__PURE__ */ oidNist(0x01));
+const sha256 = /* @__PURE__ */ createHasher$1(() => new _SHA256(), 
+/* @__PURE__ */ oidNist$1(0x01));
 
 /**
  * Shared byte/hex utils used across modules.
@@ -2331,7 +2705,7 @@ function toFixedU8(input, expectedLen, label = 'bytes') {
   if (isUint8(input)) {
     bytes = new Uint8Array(input);
   } else if (isHexLike(input)) {
-    bytes = hexToBytes$1(cleanHex(input));
+    bytes = hexToBytes$2(cleanHex(input));
   } else if (Array.isArray(input)) {
     bytes = Uint8Array.from(input);
   } else {
@@ -6836,6 +7210,8 @@ function mnemonicToBin(mnemonic) {
  */
 
 
+const DEFAULT_CTX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // ZOND
+
 /**
  * Generate a keypair.
  *
@@ -6886,7 +7262,7 @@ function sign(sk, message) {
     throw new Error('message must be Uint8Array or Buffer');
   }
 
-  const sm = cryptoSign(message, sk);
+  const sm = cryptoSign(message, sk, false, DEFAULT_CTX);
   const signature = sm.slice(0, CryptoBytes);
   return signature;
 }
@@ -6919,7 +7295,7 @@ function verify(signature, message, pk) {
   const sigBytes = new Uint8Array(signature);
   const msgBytes = new Uint8Array(message);
   const pkBytes = new Uint8Array(pk);
-  return cryptoSignVerify(sigBytes, msgBytes, pkBytes);
+  return cryptoSignVerify(sigBytes, msgBytes, pkBytes, DEFAULT_CTX);
 }
 
 /**
@@ -6980,7 +7356,7 @@ class Wallet {
   }
 
   /**
-   * @param {string} mnemonic
+   * @param {string} mnemonicQR
    * @returns {Wallet}
    */
   static newWalletFromMnemonic(mnemonic) {

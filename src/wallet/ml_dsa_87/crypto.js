@@ -11,6 +11,8 @@ import {
   CryptoSecretKeyBytes,
 } from '@theqrl/mldsa87';
 
+const DEFAULT_CTX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // ZOND
+
 /**
  * Generate a keypair.
  *
@@ -61,7 +63,7 @@ function sign(sk, message) {
     throw new Error('message must be Uint8Array or Buffer');
   }
 
-  const sm = cryptoSign(message, sk);
+  const sm = cryptoSign(message, sk, false, DEFAULT_CTX);
   const signature = sm.slice(0, CryptoBytes);
   return signature;
 }
@@ -94,7 +96,7 @@ function verify(signature, message, pk) {
   const sigBytes = new Uint8Array(signature);
   const msgBytes = new Uint8Array(message);
   const pkBytes = new Uint8Array(pk);
-  return cryptoSignVerify(sigBytes, msgBytes, pkBytes);
+  return cryptoSignVerify(sigBytes, msgBytes, pkBytes, DEFAULT_CTX);
 }
 
 export { keygen, sign, verify };

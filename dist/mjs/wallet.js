@@ -4680,6 +4680,7 @@ const DEFAULT_CTX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // ZOND
  * SHA-256 hashing reduces the 48-byte seed to the required 32 bytes per spec.
  * This matches go-qrllib behavior for cross-implementation compatibility.
  *
+ * @param {Seed} seed - 48-byte QRL seed (hashed to 32 bytes internally)
  * @returns {{ pk: Uint8Array, sk: Uint8Array }}
  */
 function keygen(seed) {
@@ -4816,7 +4817,7 @@ class Wallet {
   }
 
   /**
-   * @param {string} mnemonicQR
+   * @param {string} mnemonic
    * @returns {Wallet}
    */
   static newWalletFromMnemonic(mnemonic) {

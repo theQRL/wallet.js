@@ -1,3 +1,13 @@
+## [2.0.0](https://github.com/theQRL/wallet.js/compare/v1.1.2...v2.0.0) (2026-03-18)
+
+### ⚠ BREAKING CHANGES
+
+* ctx abstracted to this library
+
+### Features
+
+* ctx abstracted to this library ([08c374c](https://github.com/theQRL/wallet.js/commit/08c374c699374f68852d1db7a7176b7e7a4cf41f))
+
 ## [1.1.2](https://github.com/theQRL/wallet.js/compare/v1.1.1...v1.1.2) (2026-02-10)
 
 ### Bug Fixes

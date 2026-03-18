@@ -65,7 +65,7 @@ class Wallet {
   }
 
   /**
-   * @param {string} mnemonicQR
+   * @param {string} mnemonic
    * @returns {Wallet}
    */
   static newWalletFromMnemonic(mnemonic) {

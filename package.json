@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@noble/hashes": "2.0.1",
-    "@theqrl/mldsa87": "2.0.0"
+    "@theqrl/mldsa87": "2.0.1"
   },
   "directories": {
     "lib": "src",

@@ -1,3 +1,9 @@
+## [2.0.1](https://github.com/theQRL/wallet.js/compare/v2.0.0...v2.0.1) (2026-03-24)
+
+### Bug Fixes
+
+* version bump @theqrl/mldsa87 ([7449c03](https://github.com/theQRL/wallet.js/commit/7449c0348219e553b4c5758f1570bd9805f8a1a3))
+
 ## [2.0.0](https://github.com/theQRL/wallet.js/compare/v1.1.2...v2.0.0) (2026-03-18)
 
 ### ⚠ BREAKING CHANGES

@@ -23,7 +23,7 @@ jobs:
       - run: npm run report-coverage
       - name: Upload coverage to Codecov
         if: github.repository == 'theQRL/wallet.js' && github.event_name == 'push'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.lcov

@@ -1,3 +1,13 @@
+## [3.0.0](https://github.com/theQRL/wallet.js/compare/v2.0.1...v3.0.0) (2026-03-31)
+
+### ⚠ BREAKING CHANGES
+
+* 48-byte addresses and minor non-breaking audit fixes
+
+### Features
+
+* 48-byte addresses and minor non-breaking audit fixes ([c8a30e4](https://github.com/theQRL/wallet.js/commit/c8a30e4ae3f18b5692557191ad93f16615bc3610))
+
 ## [2.0.1](https://github.com/theQRL/wallet.js/compare/v2.0.0...v2.0.1) (2026-03-24)
 
 ### Bug Fixes

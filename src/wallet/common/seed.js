@@ -136,7 +136,6 @@ class ExtendedSeed {
   zeroize() {
     this.bytes.fill(0);
   }
-
 }
 
 export { Seed, ExtendedSeed };

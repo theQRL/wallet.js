@@ -4,5 +4,5 @@
  * @returns {Descriptor}
  */
 export function newMLDSA87Descriptor(metadata?: [number, number]): Descriptor;
-import { Descriptor } from "../common/descriptor.js";
+import { Descriptor } from '../common/descriptor.js';
 //# sourceMappingURL=descriptor.d.ts.map

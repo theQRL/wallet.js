@@ -17,7 +17,7 @@ describe('wallet/common/address', () => {
   });
 
   it('addressToString throws on wrong length', () => {
-    expect(() => addressToString(Uint8Array.from([1, 2]))).to.throw('address must be 20 bytes');
+    expect(() => addressToString(Uint8Array.from([1, 2]))).to.throw('address must be 48 bytes');
   });
 
   it('getAddressFromPKAndDescriptor rejects wrong pk length for ML-DSA-87', () => {

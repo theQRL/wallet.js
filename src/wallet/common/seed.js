@@ -55,17 +55,15 @@ class ExtendedSeed {
   /**
    * Layout: [3 bytes descriptor] || [48 bytes seed].
    * @param {Uint8Array} bytes Exactly 51 bytes.
-   * @param {{ skipValidation?: boolean }} [options]
-   * @throws {Error} If size mismatch.
+   * @throws {Error} If size mismatch or invalid wallet type.
    */
-  constructor(bytes, options = {}) {
+  constructor(bytes) {
     if (!bytes || bytes.length !== EXTENDED_SEED_SIZE) {
       throw new Error(`ExtendedSeed must be ${EXTENDED_SEED_SIZE} bytes`);
     }
-    const { skipValidation = false } = options;
     /** @private @type {Uint8Array} */
     this.bytes = Uint8Array.from(bytes);
-    if (!skipValidation && !isValidWalletType(this.bytes[0])) {
+    if (!isValidWalletType(this.bytes[0])) {
       throw new Error('Invalid wallet type in descriptor');
     }
   }
@@ -137,17 +135,6 @@ class ExtendedSeed {
    */
   zeroize() {
     this.bytes.fill(0);
-  }
-
-  /**
-   * Internal helper: construct without wallet type validation.
-   * @param {string|Uint8Array|Buffer|number[]} input
-   * @returns {ExtendedSeed}
-   */
-  static fromUnchecked(input) {
-    return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'), {
-      skipValidation: true,
-    });
   }
 }
 

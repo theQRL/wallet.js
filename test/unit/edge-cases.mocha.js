@@ -194,20 +194,20 @@ describe('Edge Cases', () => {
 
   describe('Address Validation Edge Cases', () => {
     it('stringToAddress accepts lowercase q prefix', () => {
-      const addr = 'q0000000000000000000000000000000000000000';
+      const addr = 'q' + '0'.repeat(96);
       const bytes = stringToAddress(addr);
       expect(bytes).to.be.instanceOf(Uint8Array);
-      expect(bytes.length).to.equal(20);
+      expect(bytes.length).to.equal(48);
     });
 
     it('stringToAddress accepts uppercase Q prefix', () => {
-      const addr = 'Q0000000000000000000000000000000000000000';
+      const addr = 'Q' + '0'.repeat(96);
       const bytes = stringToAddress(addr);
       expect(bytes).to.be.instanceOf(Uint8Array);
     });
 
     it('stringToAddress trims whitespace', () => {
-      const addr = '  Q0000000000000000000000000000000000000000  ';
+      const addr = '  Q' + '0'.repeat(96) + '  ';
       const bytes = stringToAddress(addr);
       expect(bytes).to.be.instanceOf(Uint8Array);
     });
@@ -219,47 +219,41 @@ describe('Edge Cases', () => {
     });
 
     it('stringToAddress rejects missing Q prefix', () => {
-      expect(() => stringToAddress('0000000000000000000000000000000000000000')).to.throw('address must start with Q');
+      expect(() => stringToAddress('0'.repeat(96))).to.throw('address must start with Q');
     });
 
     it('stringToAddress rejects wrong length', () => {
-      expect(() => stringToAddress('Q000000')).to.throw('address must be Q + 40 hex characters');
-      expect(() => stringToAddress('Q00000000000000000000000000000000000000000000')).to.throw(
-        'address must be Q + 40 hex characters'
-      );
+      expect(() => stringToAddress('Q000000')).to.throw('address must be Q + 96 hex characters');
+      expect(() => stringToAddress('Q' + '0'.repeat(97))).to.throw('address must be Q + 96 hex characters');
     });
 
     it('stringToAddress rejects invalid hex characters', () => {
-      expect(() => stringToAddress('Qzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz')).to.throw(
-        'address contains invalid characters'
-      );
-      expect(() => stringToAddress('Q000000000000000000000000000000000000000g')).to.throw(
-        'address contains invalid characters'
-      );
+      expect(() => stringToAddress('Q' + 'z'.repeat(96))).to.throw('address contains invalid characters');
+      expect(() => stringToAddress('Q' + '0'.repeat(95) + 'g')).to.throw('address contains invalid characters');
     });
 
     it('isValidAddress returns true for valid address', () => {
-      expect(isValidAddress('Q0000000000000000000000000000000000000000')).to.equal(true);
-      expect(isValidAddress('Qffffffffffffffffffffffffffffffffffffffff')).to.equal(true);
+      expect(isValidAddress('Q' + '0'.repeat(96))).to.equal(true);
+      expect(isValidAddress('Q' + 'f'.repeat(96))).to.equal(true);
     });
 
     it('isValidAddress returns false for invalid address', () => {
       expect(isValidAddress('')).to.equal(false);
       expect(isValidAddress('Q')).to.equal(false);
       expect(isValidAddress('Q000')).to.equal(false);
-      expect(isValidAddress('0000000000000000000000000000000000000000')).to.equal(false);
+      expect(isValidAddress('0'.repeat(96))).to.equal(false);
       expect(isValidAddress(null)).to.equal(false);
       expect(isValidAddress(123)).to.equal(false);
     });
 
     it('addressToString handles all-zero address', () => {
-      const zeros = new Uint8Array(20).fill(0);
-      expect(addressToString(zeros)).to.equal('Q0000000000000000000000000000000000000000');
+      const zeros = new Uint8Array(48).fill(0);
+      expect(addressToString(zeros)).to.equal('Q' + '0'.repeat(96));
     });
 
     it('addressToString handles all-ff address', () => {
-      const ffs = new Uint8Array(20).fill(0xff);
-      expect(addressToString(ffs)).to.equal('Qffffffffffffffffffffffffffffffffffffffff');
+      const ffs = new Uint8Array(48).fill(0xff);
+      expect(addressToString(ffs)).to.equal('Q' + 'f'.repeat(96));
     });
 
     it('roundtrip: addressToString -> stringToAddress', () => {
@@ -291,31 +285,76 @@ describe('Edge Cases', () => {
   });
 
   describe('Wallet Zeroization', () => {
-    it('zeroize() clears secret key', () => {
+    it('zeroize() nulls secret key reference', () => {
       const w = MLDSA87.newWallet();
       const skBefore = new Uint8Array(w.getSK());
-      expect(skBefore.some((b) => b !== 0)).to.equal(true); // SK should have non-zero bytes
+      expect(skBefore.some((b) => b !== 0)).to.equal(true);
 
       w.zeroize();
-
-      const skAfter = w.getSK();
-      expect(skAfter.every((b) => b === 0)).to.equal(true); // SK should be all zeros
+      expect(w.sk).to.equal(null);
     });
 
-    it('zeroize() clears seed bytes', () => {
+    it('zeroize() nulls seed reference', () => {
       const w = MLDSA87.newWallet();
       w.zeroize();
-
-      const seedBytes = w.getSeed().toBytes();
-      expect(seedBytes.every((b) => b === 0)).to.equal(true);
+      expect(w.seed).to.equal(null);
     });
 
-    it('zeroize() clears extended seed bytes', () => {
+    it('zeroize() nulls extendedSeed reference', () => {
       const w = MLDSA87.newWallet();
       w.zeroize();
+      expect(w.extendedSeed).to.equal(null);
+    });
 
-      const extBytes = w.getExtendedSeed().toBytes();
-      expect(extBytes.every((b) => b === 0)).to.equal(true);
+    it('zeroize() prevents sign()', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.sign(new Uint8Array([1, 2, 3]))).to.throw('Wallet has been zeroized');
+    });
+
+    it('zeroize() prevents getSK()', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.getSK()).to.throw('Wallet has been zeroized');
+    });
+
+    it('zeroize() prevents getSeed()', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.getSeed()).to.throw('Wallet has been zeroized');
+    });
+
+    it('zeroize() prevents getExtendedSeed()', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.getExtendedSeed()).to.throw('Wallet has been zeroized');
+    });
+
+    it('zeroize() prevents getMnemonic()', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.getMnemonic()).to.throw('Wallet has been zeroized');
+    });
+
+    it('zeroize() prevents getHexExtendedSeed()', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.getHexExtendedSeed()).to.throw('Wallet has been zeroized');
+    });
+
+    it('zeroize() still allows getPK() and getAddress()', () => {
+      const w = MLDSA87.newWallet();
+      const pkBefore = w.getPK();
+      const addrBefore = w.getAddressStr();
+      w.zeroize();
+      expect(w.getPK()).to.deep.equal(pkBefore);
+      expect(w.getAddressStr()).to.equal(addrBefore);
+    });
+
+    it('zeroize() is idempotent', () => {
+      const w = MLDSA87.newWallet();
+      w.zeroize();
+      expect(() => w.zeroize()).to.not.throw();
     });
   });
 

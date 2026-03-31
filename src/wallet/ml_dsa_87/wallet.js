@@ -23,6 +23,8 @@ class Wallet {
     this.pk = pk;
     this.sk = sk;
     this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
+    /** @private */
+    this._zeroized = false;
   }
 
   /**
@@ -93,28 +95,37 @@ class Wallet {
     return new Descriptor(this.descriptor.toBytes());
   }
 
+  /**
+   * @private
+   * @throws {Error} If the wallet has been zeroized.
+   */
+  _requireLive() {
+    if (this._zeroized) {
+      throw new Error('Wallet has been zeroized');
+    }
+  }
+
   /** @returns {ExtendedSeed} */
   getExtendedSeed() {
-    const bytes = this.extendedSeed.toBytes();
-    try {
-      return ExtendedSeed.from(bytes);
-    } catch {
-      return ExtendedSeed.fromUnchecked(bytes);
-    }
+    this._requireLive();
+    return ExtendedSeed.from(this.extendedSeed.toBytes());
   }
 
   /** @returns {Seed} */
   getSeed() {
+    this._requireLive();
     return new Seed(this.seed.toBytes());
   }
 
   /** @returns {string} hex(ExtendedSeed) */
   getHexExtendedSeed() {
-    return `0x${bytesToHex(this.extendedSeed.toBytes())}`;
+    this._requireLive();
+    return `0x${bytesToHex(this.getExtendedSeed().toBytes())}`;
   }
 
   /** @returns {string} */
   getMnemonic() {
+    this._requireLive();
     return binToMnemonic(this.getExtendedSeed().toBytes());
   }
 
@@ -131,6 +142,7 @@ class Wallet {
    * returned by this method.
    */
   getSK() {
+    this._requireLive();
     return this.sk.slice();
   }
 
@@ -140,6 +152,7 @@ class Wallet {
    * @returns {Uint8Array} Signature bytes.
    */
   sign(message) {
+    this._requireLive();
     return sign(this.sk, message);
   }
 
@@ -165,13 +178,17 @@ class Wallet {
   zeroize() {
     if (this.sk) {
       this.sk.fill(0);
+      this.sk = null;
     }
     if (this.seed) {
       this.seed.zeroize();
+      this.seed = null;
     }
     if (this.extendedSeed) {
       this.extendedSeed.zeroize();
+      this.extendedSeed = null;
     }
+    this._zeroized = true;
   }
 }
 

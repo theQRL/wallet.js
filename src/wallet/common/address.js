@@ -3,8 +3,8 @@
  * @module wallet/common/address
  *
  * Address Format:
- *   - String form: "Q" prefix followed by 40 lowercase hex characters (41 chars total)
- *   - Byte form: 20-byte SHAKE-256 hash of (descriptor || public key)
+ *   - String form: "Q" prefix followed by 96 lowercase hex characters (97 chars total)
+ *   - Byte form: 48-byte SHAKE-256 hash of (descriptor || public key)
  *   - Output is always lowercase hex; input parsing is case-insensitive for both
  *     the "Q"/"q" prefix and hex characters
  *   - Unlike EIP-55, no checksum encoding is used in the address itself
@@ -31,8 +31,8 @@ function addressToString(addrBytes) {
 
 /**
  * Convert address string to bytes.
- * @param {string} addrStr - Address string starting with 'Q' followed by 40 hex characters.
- * @returns {Uint8Array} 20-byte address.
+ * @param {string} addrStr - Address string starting with 'Q' followed by 96 hex characters.
+ * @returns {Uint8Array} 48-byte address.
  * @throws {Error} If address format is invalid.
  */
 function stringToAddress(addrStr) {
@@ -59,7 +59,7 @@ function stringToAddress(addrStr) {
 
 /**
  * Check if a string is a valid QRL address format (structure only).
- * QRL addresses contain no checksum — any well-formed Q + 40 hex string passes.
+ * QRL addresses contain no checksum — any well-formed Q + 96 hex string passes.
  * Applications should add their own confirmation or checksum layer.
  * @param {string} addrStr - Address string to validate.
  * @returns {boolean} True if valid address format.
@@ -77,7 +77,7 @@ function isValidAddress(addrStr) {
  * Derive an address from a public key and descriptor.
  * @param {Uint8Array} pk
  * @param {Descriptor} descriptor
- * @returns {Uint8Array} 20-byte address.
+ * @returns {Uint8Array} 48-byte address.
  * @throws {Error} If pk length mismatch.
  */
 function getAddressFromPKAndDescriptor(pk, descriptor) {

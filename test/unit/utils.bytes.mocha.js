@@ -29,6 +29,15 @@ describe('utils/bytes', () => {
       expect(isHexLike(1234)).to.equal(false);
       expect(isHexLike(null)).to.equal(false);
     });
+
+    it('rejects strings with no hex digits', () => {
+      expect(isHexLike('')).to.equal(false);
+      expect(isHexLike('0x')).to.equal(false);
+      expect(isHexLike('   ')).to.equal(false);
+      expect(isHexLike('---')).to.equal(false);
+      expect(isHexLike(':::')).to.equal(false);
+      expect(isHexLike(':_: ')).to.equal(false);
+    });
   });
 
   describe('cleanHex', () => {

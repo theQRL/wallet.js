@@ -12,7 +12,7 @@ import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 const DESCRIPTOR_SIZE = 3;
 
 /** @type {number} Address length in bytes */
-const ADDRESS_SIZE = 20;
+const ADDRESS_SIZE = 48;
 
 /** @type {number} Seed length in bytes */
 const SEED_SIZE = 48;
@@ -25,8 +25,8 @@ const EXTENDED_SEED_SIZE = DESCRIPTOR_SIZE + SEED_SIZE;
  * @module wallet/common/address
  *
  * Address Format:
- *   - String form: "Q" prefix followed by 40 lowercase hex characters (41 chars total)
- *   - Byte form: 20-byte SHAKE-256 hash of (descriptor || public key)
+ *   - String form: "Q" prefix followed by 96 lowercase hex characters (97 chars total)
+ *   - Byte form: 48-byte SHAKE-256 hash of (descriptor || public key)
  *   - Output is always lowercase hex; input parsing is case-insensitive for both
  *     the "Q"/"q" prefix and hex characters
  *   - Unlike EIP-55, no checksum encoding is used in the address itself
@@ -49,8 +49,8 @@ function addressToString(addrBytes) {
 
 /**
  * Convert address string to bytes.
- * @param {string} addrStr - Address string starting with 'Q' followed by 40 hex characters.
- * @returns {Uint8Array} 20-byte address.
+ * @param {string} addrStr - Address string starting with 'Q' followed by 96 hex characters.
+ * @returns {Uint8Array} 48-byte address.
  * @throws {Error} If address format is invalid.
  */
 function stringToAddress(addrStr) {
@@ -77,7 +77,7 @@ function stringToAddress(addrStr) {
 
 /**
  * Check if a string is a valid QRL address format (structure only).
- * QRL addresses contain no checksum — any well-formed Q + 40 hex string passes.
+ * QRL addresses contain no checksum — any well-formed Q + 96 hex string passes.
  * Applications should add their own confirmation or checksum layer.
  * @param {string} addrStr - Address string to validate.
  * @returns {boolean} True if valid address format.
@@ -95,7 +95,7 @@ function isValidAddress(addrStr) {
  * Derive an address from a public key and descriptor.
  * @param {Uint8Array} pk
  * @param {Descriptor} descriptor
- * @returns {Uint8Array} 20-byte address.
+ * @returns {Uint8Array} 48-byte address.
  * @throws {Error} If pk length mismatch.
  */
 function getAddressFromPKAndDescriptor(pk, descriptor) {
@@ -140,7 +140,7 @@ function isUint8(input) {
 function isHexLike(input) {
   if (typeof input !== 'string') return false;
   const s = input.trim().replace(/^0x/i, '');
-  return /^[0-9a-fA-F\s:_-]*$/.test(s);
+  return /[0-9a-fA-F]/.test(s) && /^[0-9a-fA-F\s:_-]+$/.test(s);
 }
 
 /**
@@ -322,17 +322,15 @@ class ExtendedSeed {
   /**
    * Layout: [3 bytes descriptor] || [48 bytes seed].
    * @param {Uint8Array} bytes Exactly 51 bytes.
-   * @param {{ skipValidation?: boolean }} [options]
-   * @throws {Error} If size mismatch.
+   * @throws {Error} If size mismatch or invalid wallet type.
    */
-  constructor(bytes, options = {}) {
+  constructor(bytes) {
     if (!bytes || bytes.length !== EXTENDED_SEED_SIZE) {
       throw new Error(`ExtendedSeed must be ${EXTENDED_SEED_SIZE} bytes`);
     }
-    const { skipValidation = false } = options;
     /** @private @type {Uint8Array} */
     this.bytes = Uint8Array.from(bytes);
-    if (!skipValidation && !isValidWalletType(this.bytes[0])) {
+    if (!isValidWalletType(this.bytes[0])) {
       throw new Error('Invalid wallet type in descriptor');
     }
   }
@@ -405,17 +403,6 @@ class ExtendedSeed {
   zeroize() {
     this.bytes.fill(0);
   }
-
-  /**
-   * Internal helper: construct without wallet type validation.
-   * @param {string|Uint8Array|Buffer|number[]} input
-   * @returns {ExtendedSeed}
-   */
-  static fromUnchecked(input) {
-    return new ExtendedSeed(toFixedU8(input, EXTENDED_SEED_SIZE, 'ExtendedSeed'), {
-      skipValidation: true,
-    });
-  }
 }
 
 /**
@@ -470,7 +457,7 @@ function randomBytes(size) {
     }
     {
       let acc = 0;
-      for (let i = 0; i < 16; i++) acc |= out[i];
+      for (let i = 0; i < size; i++) acc |= out[i];
       if (acc === 0) throw new Error('getRandomValues returned all zeros');
     }
     return out;
@@ -4775,6 +4762,8 @@ class Wallet {
     this.pk = pk;
     this.sk = sk;
     this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
+    /** @private */
+    this._zeroized = false;
   }
 
   /**
@@ -4845,28 +4834,37 @@ class Wallet {
     return new Descriptor(this.descriptor.toBytes());
   }
 
+  /**
+   * @private
+   * @throws {Error} If the wallet has been zeroized.
+   */
+  _requireLive() {
+    if (this._zeroized) {
+      throw new Error('Wallet has been zeroized');
+    }
+  }
+
   /** @returns {ExtendedSeed} */
   getExtendedSeed() {
-    const bytes = this.extendedSeed.toBytes();
-    try {
-      return ExtendedSeed.from(bytes);
-    } catch {
-      return ExtendedSeed.fromUnchecked(bytes);
-    }
+    this._requireLive();
+    return ExtendedSeed.from(this.extendedSeed.toBytes());
   }
 
   /** @returns {Seed} */
   getSeed() {
+    this._requireLive();
     return new Seed(this.seed.toBytes());
   }
 
   /** @returns {string} hex(ExtendedSeed) */
   getHexExtendedSeed() {
-    return `0x${bytesToHex(this.extendedSeed.toBytes())}`;
+    this._requireLive();
+    return `0x${bytesToHex(this.getExtendedSeed().toBytes())}`;
   }
 
   /** @returns {string} */
   getMnemonic() {
+    this._requireLive();
     return binToMnemonic(this.getExtendedSeed().toBytes());
   }
 
@@ -4883,6 +4881,7 @@ class Wallet {
    * returned by this method.
    */
   getSK() {
+    this._requireLive();
     return this.sk.slice();
   }
 
@@ -4892,6 +4891,7 @@ class Wallet {
    * @returns {Uint8Array} Signature bytes.
    */
   sign(message) {
+    this._requireLive();
     return sign(this.sk, message);
   }
 
@@ -4917,13 +4917,17 @@ class Wallet {
   zeroize() {
     if (this.sk) {
       this.sk.fill(0);
+      this.sk = null;
     }
     if (this.seed) {
       this.seed.zeroize();
+      this.seed = null;
     }
     if (this.extendedSeed) {
       this.extendedSeed.zeroize();
+      this.extendedSeed = null;
     }
+    this._zeroized = true;
   }
 }
 

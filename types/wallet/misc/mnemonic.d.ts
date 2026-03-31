@@ -2,6 +2,9 @@
  * Decode spaced hex mnemonic to bytes.
  * @param {string} mnemonic
  * @returns {Uint8Array}
+ *
+ * Note: Mnemonic words are normalized to lowercase for user convenience.
+ * This is by design to reduce errors from capitalization differences.
  */
 export function mnemonicToBin(mnemonic: string): Uint8Array;
 /**

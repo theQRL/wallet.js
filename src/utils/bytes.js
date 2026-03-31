@@ -21,7 +21,7 @@ export function isUint8(input) {
 export function isHexLike(input) {
   if (typeof input !== 'string') return false;
   const s = input.trim().replace(/^0x/i, '');
-  return /^[0-9a-fA-F\s:_-]*$/.test(s);
+  return /[0-9a-fA-F]/.test(s) && /^[0-9a-fA-F\s:_-]+$/.test(s);
 }
 
 /**

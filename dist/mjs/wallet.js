@@ -403,7 +403,6 @@ class ExtendedSeed {
   zeroize() {
     this.bytes.fill(0);
   }
-
 }
 
 /**

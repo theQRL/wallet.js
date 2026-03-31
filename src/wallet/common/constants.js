@@ -7,7 +7,7 @@
 export const DESCRIPTOR_SIZE = 3;
 
 /** @type {number} Address length in bytes */
-export const ADDRESS_SIZE = 20;
+export const ADDRESS_SIZE = 48;
 
 /** @type {number} Seed length in bytes */
 export const SEED_SIZE = 48;

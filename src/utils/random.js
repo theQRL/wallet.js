@@ -40,7 +40,7 @@ export function randomBytes(size) {
     }
     if (size >= 16) {
       let acc = 0;
-      for (let i = 0; i < 16; i++) acc |= out[i];
+      for (let i = 0; i < size; i++) acc |= out[i];
       if (acc === 0) throw new Error('getRandomValues returned all zeros');
     }
     return out;

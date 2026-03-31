@@ -26,7 +26,7 @@ describe('Cross-Implementation Verification', () => {
   describe('Address Derivation Algorithm', () => {
     /**
      * Address derivation in wallet.js:
-     * address = SHAKE256(descriptor || public_key, 20 bytes)
+     * address = SHAKE256(descriptor || public_key, 48 bytes)
      *
      * This must match go-qrllib's implementation.
      */

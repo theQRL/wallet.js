@@ -43,10 +43,12 @@ Seed (48 bytes, random)
 ### Address Derivation
 
 ```
-Address = SHAKE-256(Descriptor || PublicKey, 20 bytes)
+Address = SHAKE-256(Descriptor || PublicKey, 48 bytes)
 ```
 
-Addresses are 20 bytes, displayed with a `Q` prefix in hexadecimal (41 characters total).
+Addresses are 48 bytes (384 bits), displayed with a `Q` prefix in hexadecimal (97 characters total).
+
+The 48-byte (384-bit) address provides **NIST Category 5** post-quantum collision resistance. A shorter address would reduce collision resistance below the security level of the underlying signature schemes (ML-DSA-87 and SPHINCS+-256s both target NIST Level 5). The 48-byte size ensures the address does not become the weakest link in the security chain.
 
 ---
 
@@ -88,10 +90,10 @@ Addresses are 20 bytes, displayed with a `Q` prefix in hexadecimal (41 character
 
 ### No Built-in Checksum
 
-**Important:** QRL addresses do not include a checksum (unlike EIP-55 mixed-case encoding in Ethereum). `isValidAddress()` only checks the structural format — `Q` prefix followed by 40 hex characters — it cannot detect a mistyped or truncated address.
+**Important:** QRL addresses do not include a checksum (unlike EIP-55 mixed-case encoding in Ethereum). `isValidAddress()` only checks the structural format — `Q` prefix followed by 96 hex characters — it cannot detect a mistyped or truncated address.
 
 **Implications:**
-- Any 20-byte hex value with a `Q` prefix passes validation
+- Any 48-byte hex value with a `Q` prefix passes validation
 - A single character error produces a valid but unrelated address
 - Funds sent to a mistyped address are unrecoverable
 
@@ -170,7 +172,7 @@ This is by design for FIPS 204 compliance and go-qrllib cross-implementation com
 | `new Descriptor(bytes)` | Exactly 3 bytes, valid wallet type |
 | `wallet.sign(message)` | message is Uint8Array |
 | `MLDSA87.verify(sig, msg, pk)` | All inputs are Uint8Array of correct lengths |
-| `stringToAddress(str)` | Starts with Q, 40 hex characters |
+| `stringToAddress(str)` | Starts with Q, 96 hex characters |
 
 ### Error Handling
 

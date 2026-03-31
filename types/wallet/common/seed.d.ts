@@ -10,7 +10,7 @@ export class Seed {
      * @throws {Error} If size mismatch.
      */
     constructor(bytes: Uint8Array);
-    bytes: Uint8Array;
+    bytes: Uint8Array<ArrayBuffer>;
     /** @returns {Uint8Array} */
     hashSHA256(): Uint8Array;
     /**
@@ -18,6 +18,10 @@ export class Seed {
      * @returns {Uint8Array}
      */
     toBytes(): Uint8Array;
+    /**
+     * Best-effort zeroize internal seed bytes.
+     */
+    zeroize(): void;
 }
 export class ExtendedSeed {
     /**
@@ -36,7 +40,7 @@ export class ExtendedSeed {
     /**
      * Layout: [3 bytes descriptor] || [48 bytes seed].
      * @param {Uint8Array} bytes Exactly 51 bytes.
-     * @throws {Error} If size mismatch.
+     * @throws {Error} If size mismatch or invalid wallet type.
      */
     constructor(bytes: Uint8Array);
     /** @private @type {Uint8Array} */
@@ -62,6 +66,10 @@ export class ExtendedSeed {
      * @returns {Uint8Array}
      */
     toBytes(): Uint8Array;
+    /**
+     * Best-effort zeroize internal extended seed bytes.
+     */
+    zeroize(): void;
 }
-import { Descriptor } from "./descriptor.js";
+import { Descriptor } from './descriptor.js';
 //# sourceMappingURL=seed.d.ts.map

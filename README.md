@@ -100,7 +100,7 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `getAddressStr()` | `string` | Address with Q prefix (e.g., `Qabc123...`) |
-| `getAddress()` | `Uint8Array` | Raw 20-byte address |
+| `getAddress()` | `Uint8Array` | Raw 48-byte address |
 | `getMnemonic()` | `string` | 34-word mnemonic phrase |
 | `getPK()` | `Uint8Array` | Public key (2,592 bytes) |
 | `getSK()` | `Uint8Array` | Secret key (4,896 bytes) |
@@ -116,7 +116,7 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 
 ### Address Utilities
 
-**Address Format:** `Q` prefix + 40 lowercase hex characters (41 chars total).
+**Address Format:** `Q` prefix + 96 lowercase hex characters (97 chars total).
 - Output is always lowercase; input parsing is case-insensitive
 - No checksum encoding (unlike EIP-55) — `isValidAddress()` checks format only, not correctness. A single mistyped character will produce a valid but unrelated address. Applications should implement their own checksum or confirmation UX to guard against transcription errors. See [SECURITY.md](SECURITY.md#address-security) for recommendations.
 

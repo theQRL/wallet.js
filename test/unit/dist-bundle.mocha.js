@@ -34,7 +34,7 @@ describe('dist bundle smoke tests', () => {
         const w = MLDSA87.newWallet();
         console.log(w.getAddressStr());
       `);
-      expect(stdout.trim()).to.match(/^Q[0-9a-f]{40}$/);
+      expect(stdout.trim()).to.match(/^Q[0-9a-f]{96}$/);
     });
 
     it('sign and verify round-trip', async () => {
@@ -71,7 +71,7 @@ describe('dist bundle smoke tests', () => {
       `,
         { cjs: true }
       );
-      expect(stdout.trim()).to.match(/^Q[0-9a-f]{40}$/);
+      expect(stdout.trim()).to.match(/^Q[0-9a-f]{96}$/);
     });
 
     it('sign and verify round-trip', async () => {

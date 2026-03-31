@@ -82,7 +82,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
   describe('Address Properties', () => {
     it('addressToString -> stringToAddress roundtrip preserves bytes', () => {
       fc.assert(
-        fc.property(fc.uint8Array({ minLength: 20, maxLength: 20 }), (addrBytes) => {
+        fc.property(fc.uint8Array({ minLength: 48, maxLength: 48 }), (addrBytes) => {
           const str = addressToString(addrBytes);
           const recovered = stringToAddress(str);
           return recovered.every((b, i) => b === addrBytes[i]);
@@ -93,7 +93,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
 
     it('valid address strings are always recognized as valid', () => {
       fc.assert(
-        fc.property(fc.uint8Array({ minLength: 20, maxLength: 20 }), (addrBytes) => {
+        fc.property(fc.uint8Array({ minLength: 48, maxLength: 48 }), (addrBytes) => {
           const str = addressToString(addrBytes);
           return isValidAddress(str) === true;
         }),
@@ -119,7 +119,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
           fc
             .array(fc.integer({ min: 0, max: 15 }), { minLength: 1, maxLength: 100 })
             .map((arr) => arr.map((n) => n.toString(16)).join(''))
-            .filter((s) => s.length !== 40),
+            .filter((s) => s.length !== 96),
           (hex) => {
             try {
               stringToAddress(`Q${hex}`);

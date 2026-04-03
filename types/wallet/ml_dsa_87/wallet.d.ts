@@ -1,4 +1,3 @@
-export type Descriptor = import("../common/descriptor.js").Descriptor;
 export class Wallet {
     /**
      * Create a new random wallet(non-deterministic).

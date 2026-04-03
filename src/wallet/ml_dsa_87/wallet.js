@@ -3,7 +3,6 @@
  * @module wallet/ml_dsa_87/wallet
  */
 
-/** @typedef {import('../common/descriptor.js').Descriptor} Descriptor */
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { randomBytes } from '../../utils/random.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';

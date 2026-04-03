@@ -1,3 +1,9 @@
+## [3.0.1](https://github.com/theQRL/wallet.js/compare/v3.0.0...v3.0.1) (2026-04-03)
+
+### Bug Fixes
+
+* remove redundant [@typedef](https://github.com/typedef) causing conflict for Descriptor ([32d18a5](https://github.com/theQRL/wallet.js/commit/32d18a5d7ba53b69d1560d6d8e9848a40374a1b0))
+
 ## [3.0.0](https://github.com/theQRL/wallet.js/compare/v2.0.1...v3.0.0) (2026-03-31)
 
 ### ⚠ BREAKING CHANGES

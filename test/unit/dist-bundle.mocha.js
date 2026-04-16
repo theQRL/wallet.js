@@ -34,7 +34,8 @@ describe('dist bundle smoke tests', () => {
         const w = MLDSA87.newWallet();
         console.log(w.getAddressStr());
       `);
-      expect(stdout.trim()).to.match(/^Q[0-9a-f]{96}$/);
+      // Default address size is 20 bytes → Q + 40 hex chars (NIST Cat 1, v2.x)
+      expect(stdout.trim()).to.match(/^Q[0-9a-f]{40}$/);
     });
 
     it('sign and verify round-trip', async () => {
@@ -71,7 +72,8 @@ describe('dist bundle smoke tests', () => {
       `,
         { cjs: true }
       );
-      expect(stdout.trim()).to.match(/^Q[0-9a-f]{96}$/);
+      // Default address size is 20 bytes → Q + 40 hex chars (NIST Cat 1, v2.x)
+      expect(stdout.trim()).to.match(/^Q[0-9a-f]{40}$/);
     });
 
     it('sign and verify round-trip', async () => {

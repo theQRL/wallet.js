@@ -113,6 +113,16 @@ class Assertion {
     return this.an(expectedType, message);
   }
 
+  match(regex, message) {
+    const condition = regex instanceof RegExp && typeof this.actual === 'string' && regex.test(this.actual);
+    this._assert(
+      condition,
+      message || `expected ${String(this.actual)} to match ${String(regex)}`,
+      message || `expected ${String(this.actual)} to not match ${String(regex)}`,
+    );
+    return this;
+  }
+
   throw(expected, message) {
     if (typeof this.actual !== 'function') {
       this._assert(false, 'expected a function to throw', 'expected a function to not throw');

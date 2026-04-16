@@ -80,20 +80,31 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
   });
 
   describe('Address Properties', () => {
-    it('addressToString -> stringToAddress roundtrip preserves bytes', () => {
+    it('addressToString -> stringToAddress roundtrip preserves bytes (20-byte default)', () => {
       fc.assert(
-        fc.property(fc.uint8Array({ minLength: 48, maxLength: 48 }), (addrBytes) => {
+        fc.property(fc.uint8Array({ minLength: 20, maxLength: 20 }), (addrBytes) => {
           const str = addressToString(addrBytes);
           const recovered = stringToAddress(str);
-          return recovered.every((b, i) => b === addrBytes[i]);
+          return recovered.length === addrBytes.length && recovered.every((b, i) => b === addrBytes[i]);
         }),
         { numRuns: 100 }
       );
     });
 
-    it('valid address strings are always recognized as valid', () => {
+    it('addressToString -> stringToAddress roundtrip preserves bytes (48-byte Cat 5)', () => {
       fc.assert(
         fc.property(fc.uint8Array({ minLength: 48, maxLength: 48 }), (addrBytes) => {
+          const str = addressToString(addrBytes);
+          const recovered = stringToAddress(str);
+          return recovered.length === addrBytes.length && recovered.every((b, i) => b === addrBytes[i]);
+        }),
+        { numRuns: 100 }
+      );
+    });
+
+    it('valid address strings of any positive length are recognized as valid', () => {
+      fc.assert(
+        fc.property(fc.uint8Array({ minLength: 1, maxLength: 64 }), (addrBytes) => {
           const str = addressToString(addrBytes);
           return isValidAddress(str) === true;
         }),
@@ -113,13 +124,13 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
       );
     });
 
-    it('stringToAddress rejects addresses with wrong length', () => {
+    it('stringToAddress rejects odd-length hex (structurally invalid)', () => {
       fc.assert(
         fc.property(
           fc
             .array(fc.integer({ min: 0, max: 15 }), { minLength: 1, maxLength: 100 })
             .map((arr) => arr.map((n) => n.toString(16)).join(''))
-            .filter((s) => s.length !== 96),
+            .filter((s) => s.length > 0 && s.length % 2 !== 0),
           (hex) => {
             try {
               stringToAddress(`Q${hex}`);

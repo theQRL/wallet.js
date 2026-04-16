@@ -43,12 +43,56 @@ Seed (48 bytes, random)
 ### Address Derivation
 
 ```
-Address = SHAKE-256(Descriptor || PublicKey, 48 bytes)
+Address = SHAKE-256(Descriptor || PublicKey, addressSize bytes)
 ```
 
-Addresses are 48 bytes (384 bits), displayed with a `Q` prefix in hexadecimal (97 characters total).
+The address length is **configurable** via the `addressSize` parameter.
 
-The 48-byte (384-bit) address provides **NIST Category 5** post-quantum collision resistance. A shorter address would reduce collision resistance below the security level of the underlying signature schemes (ML-DSA-87 and SPHINCS+-256s both target NIST Level 5). The 48-byte size ensures the address does not become the weakest link in the security chain.
+| Size     | Constant                   | Post-Quantum Category | String form (with `Q`) |
+|----------|----------------------------|-----------------------|------------------------|
+| 20 bytes | `ADDRESS_SIZE_CATEGORY_1`  | NIST Category 1       | 41 chars               |
+| 48 bytes | `ADDRESS_SIZE_CATEGORY_5`  | NIST Category 5       | 97 chars               |
+
+**Default: 20 bytes (NIST Category 1).** This preserves the wallet.js 2.x API
+contract: callers that do not specify `addressSize` get the historical value,
+so existing integrations keep working without code changes.
+
+**Opt-in: 48 bytes (NIST Category 5).** Applications that want the address to
+match the post-quantum collision resistance of the underlying signature
+schemes (ML-DSA-87 targets NIST Level 5) should pass
+`ADDRESS_SIZE_CATEGORY_5` explicitly:
+
+```javascript
+import { MLDSA87, ADDRESS_SIZE_CATEGORY_5 } from '@theqrl/wallet.js';
+
+// Default — 20-byte (Cat 1) addresses, matches wallet.js 2.x:
+const w = MLDSA87.newWallet();
+
+// Opt-in to 48-byte (Cat 5) addresses:
+const wCat5 = MLDSA87.newWallet([0, 0], ADDRESS_SIZE_CATEGORY_5);
+```
+
+All `Wallet` factory methods (`newWallet`, `newWalletFromSeed`,
+`newWalletFromExtendedSeed`, `newWalletFromMnemonic`) accept an optional
+trailing `addressSize` argument; the standalone
+`getAddressFromPKAndDescriptor(pk, descriptor, addressSize?)` helper accepts
+the same parameter.
+
+**Security trade-off.** SHAKE-256 is an extendable-output function, so the
+20-byte address is literally the first 40 hex characters of the corresponding
+48-byte address for the same (descriptor, pk). The choice is about how much
+collision resistance the address itself provides; the underlying signature
+scheme's strength is unchanged.
+
+- At 20 bytes (160 bits): ≈80-bit classical / ≈53-bit quantum collision
+  resistance — consistent with v2.x behavior and sufficient for applications
+  that rely on application-layer checksums or out-of-band address confirmation.
+- At 48 bytes (384 bits): ≈192-bit classical / ≈128-bit quantum collision
+  resistance — matches the post-quantum security level of ML-DSA-87 so the
+  address does not become the weakest link.
+
+Addresses are displayed with a `Q` prefix in lowercase hexadecimal, always
+2 × `addressSize` hex characters long.
 
 ---
 
@@ -90,10 +134,10 @@ The 48-byte (384-bit) address provides **NIST Category 5** post-quantum collisio
 
 ### No Built-in Checksum
 
-**Important:** QRL addresses do not include a checksum (unlike EIP-55 mixed-case encoding in Ethereum). `isValidAddress()` only checks the structural format — `Q` prefix followed by 96 hex characters — it cannot detect a mistyped or truncated address.
+**Important:** QRL addresses do not include a checksum (unlike EIP-55 mixed-case encoding in Ethereum). `isValidAddress()` only checks the structural format — `Q` prefix followed by an even number of lowercase/uppercase hex characters — it cannot detect a mistyped or truncated address. Length is not fixed by the validator because 20-byte and 48-byte addresses coexist; consumers that require a specific length should check `stringToAddress(addr).length` after validation.
 
 **Implications:**
-- Any 48-byte hex value with a `Q` prefix passes validation
+- Any `Q` + even-length hex string passes structural validation (20-byte or 48-byte)
 - A single character error produces a valid but unrelated address
 - Funds sent to a mistyped address are unrecoverable
 
@@ -158,6 +202,31 @@ This is by design for FIPS 204 compliance and go-qrllib cross-implementation com
    - Minimize wallet lifetime in memory
    - Avoid logging or serializing sensitive data
    - Consider hardware security modules for high-value applications
+
+### Accidental Leakage Hardening
+
+Any in-process code holding a `Wallet` reference already has full signing
+authority, so private fields cannot raise that security boundary. What the
+library *does* defend against is **accidental** leakage of raw secret
+material through logs, crash reporters, telemetry, devtools, and generic
+object-traversal code:
+
+| Surface | Protection |
+|---------|------------|
+| `Object.keys(wallet)` / `{...wallet}` | Secret-bearing fields (`sk`, `seed`, `extendedSeed`, `_zeroized`) are defined as **non-enumerable**, so reflection-based traversal does not surface them. Only `descriptor` and `pk` (public material) remain enumerable. |
+| `JSON.stringify(wallet)` | `Wallet.toJSON()` returns only a redacted public shape: `{ address, pk }`. Raw `sk`, `seed`, and `extendedSeed` are never serialized. |
+| `Seed` / `ExtendedSeed` `JSON.stringify` | Both types define `toJSON()` returning `{ type, redacted: true }` — raw `bytes` are never serialized. The `bytes` field is also non-enumerable. |
+| `console.log(wallet)` / `util.inspect(wallet)` | A custom `Symbol.for('nodejs.util.inspect.custom')` method returns `Wallet { address: '…', state: 'live' \| 'zeroized', <secret material redacted> }`. `Seed` and `ExtendedSeed` render as `<redacted>`. |
+
+Direct property access (`wallet.sk`, `seed.bytes`, etc.) still works for
+legitimate callers — non-enumerable means *not traversed by default*, not
+*inaccessible*. The supported, auditable API remains `getSK()`, `getSeed()`,
+`getExtendedSeed()`, `getMnemonic()`, and `zeroize()`.
+
+**This is defense-in-depth, not a trust boundary.** An adversary with a
+wallet reference can still call `sign()`, `getSK()`, or reflect through
+`Object.getOwnPropertyNames()`. Follow the recommendations above to limit
+the window in which a live `Wallet` exists.
 
 ---
 

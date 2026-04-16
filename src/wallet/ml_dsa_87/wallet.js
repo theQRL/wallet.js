@@ -7,37 +7,63 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { randomBytes } from '../../utils/random.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
 import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
+import { DEFAULT_ADDRESS_SIZE } from '../common/constants.js';
 import { Descriptor } from '../common/descriptor.js';
 import { Seed, ExtendedSeed } from '../common/seed.js';
 import { newMLDSA87Descriptor } from './descriptor.js';
 import { keygen, sign, verify } from './crypto.js';
 
+/**
+ * Property names that carry secret material. Kept non-enumerable so that
+ * `Object.keys`, `JSON.stringify`, `{...wallet}`, and default `util.inspect`
+ * do not surface them — defense-in-depth against accidental leakage through
+ * logs, crash reporters, serializers, etc. Direct access (e.g. `w.sk`)
+ * still works for legitimate callers; see `toJSON()` for the redacted
+ * public shape.
+ */
+const SECRET_FIELDS = ['seed', 'sk', 'extendedSeed', '_zeroized'];
+
 class Wallet {
   /**
-   * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
+   * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array, addressSize?: number}} opts
    */
-  constructor({ descriptor, seed, pk, sk }) {
+  constructor({ descriptor, seed, pk, sk, addressSize = DEFAULT_ADDRESS_SIZE }) {
+    if (!Number.isInteger(addressSize) || addressSize <= 0) {
+      throw new Error('addressSize must be a positive integer');
+    }
     this.descriptor = descriptor;
     this.seed = seed;
     this.pk = pk;
     this.sk = sk;
+    /**
+     * Address length in bytes this wallet derives. Defaults to
+     * {@link DEFAULT_ADDRESS_SIZE} (20, NIST Category 1 — v2.x contract);
+     * pass `addressSize: ADDRESS_SIZE_CATEGORY_5` (48) on construction to
+     * get NIST Category 5 post-quantum collision resistance.
+     * @type {number}
+     */
+    this.addressSize = addressSize;
     this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
     /** @private */
     this._zeroized = false;
+    for (const name of SECRET_FIELDS) {
+      Object.defineProperty(this, name, { enumerable: false });
+    }
   }
 
   /**
    * Create a new random wallet(non-deterministic).
    * @param {[number, number]} [metadata=[0,0] ]
+   * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
    * @returns {Wallet}
    */
-  static newWallet(metadata = [0, 0]) {
+  static newWallet(metadata = [0, 0], addressSize = DEFAULT_ADDRESS_SIZE) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const seedBytes = randomBytes(48);
     try {
       const seed = new Seed(seedBytes);
       const { pk, sk } = keygen(seed);
-      return new Wallet({ descriptor, seed, pk, sk });
+      return new Wallet({ descriptor, seed, pk, sk, addressSize });
     } finally {
       seedBytes.fill(0);
     }
@@ -46,34 +72,37 @@ class Wallet {
   /**
    * @param {Seed} seed
    * @param {[number, number]} [metadata=[0,0]]
+   * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
    * @returns {Wallet}
    */
-  static newWalletFromSeed(seed, metadata = [0, 0]) {
+  static newWalletFromSeed(seed, metadata = [0, 0], addressSize = DEFAULT_ADDRESS_SIZE) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    return new Wallet({ descriptor, seed, pk, sk, addressSize });
   }
 
   /**
    * @param {ExtendedSeed} extendedSeed
+   * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
    * @returns {Wallet}
    */
-  static newWalletFromExtendedSeed(extendedSeed) {
+  static newWalletFromExtendedSeed(extendedSeed, addressSize = DEFAULT_ADDRESS_SIZE) {
     const descriptor = extendedSeed.getDescriptor();
     const seed = extendedSeed.getSeed();
     const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    return new Wallet({ descriptor, seed, pk, sk, addressSize });
   }
 
   /**
    * @param {string} mnemonic
+   * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
    * @returns {Wallet}
    */
-  static newWalletFromMnemonic(mnemonic) {
+  static newWalletFromMnemonic(mnemonic, addressSize = DEFAULT_ADDRESS_SIZE) {
     const bin = mnemonicToBin(mnemonic);
     try {
       const extendedSeed = new ExtendedSeed(bin);
-      return this.newWalletFromExtendedSeed(extendedSeed);
+      return this.newWalletFromExtendedSeed(extendedSeed, addressSize);
     } finally {
       bin.fill(0);
     }
@@ -81,7 +110,7 @@ class Wallet {
 
   /** @returns {Uint8Array} */
   getAddress() {
-    return getAddressFromPKAndDescriptor(this.pk, this.descriptor);
+    return getAddressFromPKAndDescriptor(this.pk, this.descriptor, this.addressSize);
   }
 
   /** @returns {string} */
@@ -164,6 +193,36 @@ class Wallet {
    */
   static verify(signature, message, pk) {
     return verify(signature, message, pk);
+  }
+
+  /**
+   * Redacted JSON shape used by `JSON.stringify`. Returns only public
+   * information — address and public key. Secret material (sk, seed,
+   * extendedSeed) is intentionally excluded so that accidental
+   * serialization through logs, crash reporters, telemetry, structured
+   * clone, or object spreading cannot leak secrets.
+   *
+   * Callers who need the raw material must ask for it explicitly via
+   * `getSK()`, `getSeed()`, `getExtendedSeed()`, or `getMnemonic()`.
+   *
+   * @returns {{address: string, pk: string}}
+   */
+  toJSON() {
+    return {
+      address: this.getAddressStr(),
+      pk: `0x${bytesToHex(this.pk)}`,
+    };
+  }
+
+  /**
+   * Safe representation for Node's `util.inspect` / `console.log`.
+   * Never includes secret material.
+   * @returns {string}
+   */
+  [Symbol.for('nodejs.util.inspect.custom')]() {
+    const state = this._zeroized ? 'zeroized' : 'live';
+    const addr = this._zeroized ? '<zeroized>' : this.getAddressStr();
+    return `Wallet { address: '${addr}', state: '${state}', <secret material redacted> }`;
   }
 
   /**

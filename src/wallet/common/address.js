@@ -3,27 +3,35 @@
  * @module wallet/common/address
  *
  * Address Format:
- *   - String form: "Q" prefix followed by 96 lowercase hex characters (97 chars total)
- *   - Byte form: 48-byte SHAKE-256 hash of (descriptor || public key)
+ *   - String form: "Q" prefix followed by 2 × addressSize lowercase hex characters.
+ *     At the default size (20 bytes, NIST Category 1) this is a 41-character
+ *     string. At {@link ADDRESS_SIZE_CATEGORY_5} (48 bytes, NIST Category 5)
+ *     this is a 97-character string.
+ *   - Byte form: `addressSize`-byte SHAKE-256 hash of (descriptor || public key)
  *   - Output is always lowercase hex; input parsing is case-insensitive for both
  *     the "Q"/"q" prefix and hex characters
  *   - Unlike EIP-55, no checksum encoding is used in the address itself
+ *   - The address helpers are length-agnostic: `addressToString`,
+ *     `stringToAddress`, and `isValidAddress` accept any (positive, even)
+ *     byte length so that 20-byte and 48-byte (and future) addresses can
+ *     coexist. `getAddressFromPKAndDescriptor` accepts an explicit
+ *     `addressSize` (default: {@link DEFAULT_ADDRESS_SIZE}).
  */
 
 /** @typedef {import('./descriptor.js').Descriptor} Descriptor */
 import { shake256 } from '@noble/hashes/sha3.js';
 import { CryptoPublicKeyBytes } from '@theqrl/mldsa87';
-import { ADDRESS_SIZE } from './constants.js';
+import { DEFAULT_ADDRESS_SIZE } from './constants.js';
 
 /**
  * Convert address bytes to string form.
  * @param {Uint8Array} addrBytes
  * @returns {string}
- * @throws {Error} If length mismatch.
+ * @throws {Error} If input is not a non-empty Uint8Array.
  */
 function addressToString(addrBytes) {
-  if (!addrBytes || addrBytes.length !== ADDRESS_SIZE) {
-    throw new Error(`address must be ${ADDRESS_SIZE} bytes`);
+  if (!(addrBytes instanceof Uint8Array) || addrBytes.length === 0) {
+    throw new Error('address must be a non-empty Uint8Array');
   }
   const hex = [...addrBytes].map((b) => b.toString(16).padStart(2, '0')).join('');
   return `Q${hex}`;
@@ -31,8 +39,11 @@ function addressToString(addrBytes) {
 
 /**
  * Convert address string to bytes.
- * @param {string} addrStr - Address string starting with 'Q' followed by 96 hex characters.
- * @returns {Uint8Array} 48-byte address.
+ * @param {string} addrStr - Address string starting with 'Q' followed by an
+ *   even number of hex characters (2 per byte). Length is implied by the
+ *   string — 40 hex chars for a 20-byte address, 96 hex chars for a 48-byte
+ *   address, etc.
+ * @returns {Uint8Array} Decoded address bytes.
  * @throws {Error} If address format is invalid.
  */
 function stringToAddress(addrStr) {
@@ -44,14 +55,14 @@ function stringToAddress(addrStr) {
     throw new Error('address must start with Q');
   }
   const hex = trimmed.slice(1);
-  if (hex.length !== ADDRESS_SIZE * 2) {
-    throw new Error(`address must be Q + ${ADDRESS_SIZE * 2} hex characters, got ${hex.length}`);
+  if (hex.length === 0 || hex.length % 2 !== 0) {
+    throw new Error(`address must be Q + a non-empty even number of hex characters, got ${hex.length}`);
   }
   if (!/^[0-9a-fA-F]+$/.test(hex)) {
     throw new Error('address contains invalid characters');
   }
-  const bytes = new Uint8Array(ADDRESS_SIZE);
-  for (let i = 0; i < ADDRESS_SIZE; i += 1) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
     bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   }
   return bytes;
@@ -59,8 +70,9 @@ function stringToAddress(addrStr) {
 
 /**
  * Check if a string is a valid QRL address format (structure only).
- * QRL addresses contain no checksum — any well-formed Q + 96 hex string passes.
- * Applications should add their own confirmation or checksum layer.
+ * Accepts any `Q`-prefixed even-length hex string — this lets 20-byte and
+ * 48-byte addresses coexist. QRL addresses contain no checksum; applications
+ * should add their own confirmation or checksum layer.
  * @param {string} addrStr - Address string to validate.
  * @returns {boolean} True if valid address format.
  */
@@ -77,11 +89,17 @@ function isValidAddress(addrStr) {
  * Derive an address from a public key and descriptor.
  * @param {Uint8Array} pk
  * @param {Descriptor} descriptor
- * @returns {Uint8Array} 48-byte address.
- * @throws {Error} If pk length mismatch.
+ * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
+ *   Defaults to 20 (NIST Category 1 — the wallet.js 2.x contract). Pass
+ *   `ADDRESS_SIZE_CATEGORY_5` (48) for NIST Category 5.
+ * @returns {Uint8Array} `addressSize`-byte address.
+ * @throws {Error} If pk length mismatch or addressSize is not a positive integer.
  */
-function getAddressFromPKAndDescriptor(pk, descriptor) {
+function getAddressFromPKAndDescriptor(pk, descriptor, addressSize = DEFAULT_ADDRESS_SIZE) {
   if (!(pk instanceof Uint8Array)) throw new Error('pk must be Uint8Array');
+  if (!Number.isInteger(addressSize) || addressSize <= 0) {
+    throw new Error('addressSize must be a positive integer');
+  }
 
   const walletType = descriptor.type();
   let expectedPKLen;
@@ -97,7 +115,7 @@ function getAddressFromPKAndDescriptor(pk, descriptor) {
   const input = new Uint8Array(descBytes.length + pk.length);
   input.set(descBytes, 0);
   input.set(pk, descBytes.length);
-  return shake256.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
+  return shake256.create({ dkLen: addressSize }).update(input).digest();
 }
 
 export { addressToString, stringToAddress, isValidAddress, getAddressFromPKAndDescriptor };

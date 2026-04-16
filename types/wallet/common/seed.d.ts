@@ -22,6 +22,15 @@ export class Seed {
      * Best-effort zeroize internal seed bytes.
      */
     zeroize(): void;
+    /**
+     * Redacted JSON shape used by `JSON.stringify`. Raw seed bytes are
+     * never serialized; callers must explicitly call `toBytes()`.
+     * @returns {{type: string, redacted: true}}
+     */
+    toJSON(): {
+        type: string;
+        redacted: true;
+    };
 }
 export class ExtendedSeed {
     /**
@@ -70,6 +79,15 @@ export class ExtendedSeed {
      * Best-effort zeroize internal extended seed bytes.
      */
     zeroize(): void;
+    /**
+     * Redacted JSON shape used by `JSON.stringify`. Raw bytes are never
+     * serialized; callers must explicitly call `toBytes()`.
+     * @returns {{type: string, redacted: true}}
+     */
+    toJSON(): {
+        type: string;
+        redacted: true;
+    };
 }
 import { Descriptor } from './descriptor.js';
 //# sourceMappingURL=seed.d.ts.map

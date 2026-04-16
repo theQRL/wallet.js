@@ -2,25 +2,29 @@ export class Wallet {
     /**
      * Create a new random wallet(non-deterministic).
      * @param {[number, number]} [metadata=[0,0] ]
+     * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
      * @returns {Wallet}
      */
-    static newWallet(metadata?: [number, number]): Wallet;
+    static newWallet(metadata?: [number, number], addressSize?: number): Wallet;
     /**
      * @param {Seed} seed
      * @param {[number, number]} [metadata=[0,0]]
+     * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
      * @returns {Wallet}
      */
-    static newWalletFromSeed(seed: Seed, metadata?: [number, number]): Wallet;
+    static newWalletFromSeed(seed: Seed, metadata?: [number, number], addressSize?: number): Wallet;
     /**
      * @param {ExtendedSeed} extendedSeed
+     * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
      * @returns {Wallet}
      */
-    static newWalletFromExtendedSeed(extendedSeed: ExtendedSeed): Wallet;
+    static newWalletFromExtendedSeed(extendedSeed: ExtendedSeed, addressSize?: number): Wallet;
     /**
      * @param {string} mnemonic
+     * @param {number} [addressSize=DEFAULT_ADDRESS_SIZE] Address length in bytes.
      * @returns {Wallet}
      */
-    static newWalletFromMnemonic(mnemonic: string): Wallet;
+    static newWalletFromMnemonic(mnemonic: string, addressSize?: number): Wallet;
     /**
      * Verify a signature.
      * @param {Uint8Array} signature
@@ -30,18 +34,27 @@ export class Wallet {
      */
     static verify(signature: Uint8Array, message: Uint8Array, pk: Uint8Array): boolean;
     /**
-     * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
+     * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array, addressSize?: number}} opts
      */
-    constructor({ descriptor, seed, pk, sk }: {
+    constructor({ descriptor, seed, pk, sk, addressSize }: {
         descriptor: Descriptor;
         seed: Seed;
         pk: Uint8Array;
         sk: Uint8Array;
+        addressSize?: number;
     });
     descriptor: Descriptor;
     seed: Seed;
     pk: Uint8Array<ArrayBufferLike>;
     sk: Uint8Array<ArrayBufferLike>;
+    /**
+     * Address length in bytes this wallet derives. Defaults to
+     * {@link DEFAULT_ADDRESS_SIZE} (20, NIST Category 1 — v2.x contract);
+     * pass `addressSize: ADDRESS_SIZE_CATEGORY_5` (48) on construction to
+     * get NIST Category 5 post-quantum collision resistance.
+     * @type {number}
+     */
+    addressSize: number;
     extendedSeed: ExtendedSeed;
     /** @private */
     private _zeroized;
@@ -80,6 +93,22 @@ export class Wallet {
      * @returns {Uint8Array} Signature bytes.
      */
     sign(message: Uint8Array): Uint8Array;
+    /**
+     * Redacted JSON shape used by `JSON.stringify`. Returns only public
+     * information — address and public key. Secret material (sk, seed,
+     * extendedSeed) is intentionally excluded so that accidental
+     * serialization through logs, crash reporters, telemetry, structured
+     * clone, or object spreading cannot leak secrets.
+     *
+     * Callers who need the raw material must ask for it explicitly via
+     * `getSK()`, `getSeed()`, `getExtendedSeed()`, or `getMnemonic()`.
+     *
+     * @returns {{address: string, pk: string}}
+     */
+    toJSON(): {
+        address: string;
+        pk: string;
+    };
     /**
      * Securely zeroize sensitive key material.
      * Call this when the wallet is no longer needed to minimize

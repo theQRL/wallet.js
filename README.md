@@ -100,7 +100,7 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `getAddressStr()` | `string` | Address with Q prefix (e.g., `Qabc123...`) |
-| `getAddress()` | `Uint8Array` | Raw 48-byte address |
+| `getAddress()` | `Uint8Array` | Raw address bytes (length = `wallet.addressSize`) |
 | `getMnemonic()` | `string` | 34-word mnemonic phrase |
 | `getPK()` | `Uint8Array` | Public key (2,592 bytes) |
 | `getSK()` | `Uint8Array` | Secret key (4,896 bytes) |
@@ -114,10 +114,31 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 |--------|-------------|
 | `MLDSA87.verify(signature, message, pk)` | Verify a signature, returns `boolean` |
 
+### Configurable Address Size
+
+Every `Wallet` factory accepts an optional trailing `addressSize` argument:
+
+```javascript
+import { MLDSA87, ADDRESS_SIZE_CATEGORY_5 } from '@theqrl/wallet.js';
+
+// Default — 20-byte (NIST Category 1) addresses. Matches wallet.js 2.x.
+const wallet = MLDSA87.newWallet();
+wallet.addressSize; // 20
+wallet.getAddressStr(); // 'Q' + 40 hex chars
+
+// Opt-in — 48-byte (NIST Category 5) addresses:
+const walletCat5 = MLDSA87.newWallet([0, 0], ADDRESS_SIZE_CATEGORY_5);
+walletCat5.addressSize; // 48
+walletCat5.getAddressStr(); // 'Q' + 96 hex chars
+```
+
+The same optional argument is available on `newWalletFromSeed(seed, metadata, addressSize)`, `newWalletFromExtendedSeed(extendedSeed, addressSize)`, and `newWalletFromMnemonic(mnemonic, addressSize)`. See [SECURITY.md §Address Derivation](SECURITY.md#address-derivation) for the security trade-off.
+
 ### Address Utilities
 
-**Address Format:** `Q` prefix + 96 lowercase hex characters (97 chars total).
+**Address Format:** `Q` prefix followed by 2 × `addressSize` lowercase hex characters. Default is 20 bytes (41-char string); opt in to 48 bytes (97-char string) via `ADDRESS_SIZE_CATEGORY_5`.
 - Output is always lowercase; input parsing is case-insensitive
+- `addressToString`, `stringToAddress`, and `isValidAddress` are length-agnostic — they accept any `Q` + even-length hex string, so 20-byte and 48-byte addresses coexist transparently.
 - No checksum encoding (unlike EIP-55) — `isValidAddress()` checks format only, not correctness. A single mistyped character will produce a valid but unrelated address. Applications should implement their own checksum or confirmation UX to guard against transcription errors. See [SECURITY.md](SECURITY.md#address-security) for recommendations.
 
 ```javascript

@@ -16,8 +16,18 @@ describe('wallet/common/address', () => {
     expect(addressToString(addrBytes)).to.equal(tc.wantAddress);
   });
 
-  it('addressToString throws on wrong length', () => {
-    expect(() => addressToString(Uint8Array.from([1, 2]))).to.throw('address must be 48 bytes');
+  it('addressToString throws on empty / non-Uint8 input', () => {
+    expect(() => addressToString(new Uint8Array(0))).to.throw('address must be a non-empty Uint8Array');
+    expect(() => addressToString(null)).to.throw('address must be a non-empty Uint8Array');
+    expect(() => addressToString([1, 2, 3])).to.throw('address must be a non-empty Uint8Array');
+  });
+
+  it('addressToString accepts any positive Uint8Array length (size-agnostic)', () => {
+    // Length is not fixed — 20 bytes (v2.x default), 48 bytes (Cat 5), any size
+    // is acceptable. This keeps the helper usable at any addressSize.
+    expect(addressToString(new Uint8Array(20).fill(0xaa))).to.match(/^Q[0-9a-f]{40}$/);
+    expect(addressToString(new Uint8Array(48).fill(0xaa))).to.match(/^Q[0-9a-f]{96}$/);
+    expect(addressToString(Uint8Array.from([1, 2]))).to.equal('Q0102');
   });
 
   it('getAddressFromPKAndDescriptor rejects wrong pk length for ML-DSA-87', () => {

@@ -19,6 +19,9 @@ class Seed {
       throw new Error(`Seed must be ${SEED_SIZE} bytes`);
     }
     this.bytes = Uint8Array.from(bytes);
+    // Hide raw seed bytes from Object.keys / JSON.stringify / spread /
+    // default util.inspect — defense-in-depth against accidental leakage.
+    Object.defineProperty(this, 'bytes', { enumerable: false });
   }
 
   /** @returns {Uint8Array} */
@@ -39,6 +42,20 @@ class Seed {
    */
   zeroize() {
     this.bytes.fill(0);
+  }
+
+  /**
+   * Redacted JSON shape used by `JSON.stringify`. Raw seed bytes are
+   * never serialized; callers must explicitly call `toBytes()`.
+   * @returns {{type: string, redacted: true}}
+   */
+  toJSON() {
+    return { type: 'Seed', redacted: true };
+  }
+
+  /** @returns {string} */
+  [Symbol.for('nodejs.util.inspect.custom')]() {
+    return 'Seed { <redacted> }';
   }
 
   /**
@@ -66,6 +83,9 @@ class ExtendedSeed {
     if (!isValidWalletType(this.bytes[0])) {
       throw new Error('Invalid wallet type in descriptor');
     }
+    // Hide raw extended-seed bytes from Object.keys / JSON.stringify /
+    // spread / default util.inspect.
+    Object.defineProperty(this, 'bytes', { enumerable: false });
   }
 
   /**
@@ -135,6 +155,20 @@ class ExtendedSeed {
    */
   zeroize() {
     this.bytes.fill(0);
+  }
+
+  /**
+   * Redacted JSON shape used by `JSON.stringify`. Raw bytes are never
+   * serialized; callers must explicitly call `toBytes()`.
+   * @returns {{type: string, redacted: true}}
+   */
+  toJSON() {
+    return { type: 'ExtendedSeed', redacted: true };
+  }
+
+  /** @returns {string} */
+  [Symbol.for('nodejs.util.inspect.custom')]() {
+    return 'ExtendedSeed { <redacted> }';
   }
 }
 

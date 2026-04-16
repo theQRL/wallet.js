@@ -3,7 +3,15 @@
  * @module index
  */
 
-import { DESCRIPTOR_SIZE, EXTENDED_SEED_SIZE, SEED_SIZE } from './wallet/common/constants.js';
+import {
+  ADDRESS_SIZE,
+  ADDRESS_SIZE_CATEGORY_1,
+  ADDRESS_SIZE_CATEGORY_5,
+  DEFAULT_ADDRESS_SIZE,
+  DESCRIPTOR_SIZE,
+  EXTENDED_SEED_SIZE,
+  SEED_SIZE,
+} from './wallet/common/constants.js';
 import {
   getAddressFromPKAndDescriptor,
   stringToAddress,
@@ -24,6 +32,10 @@ export {
   EXTENDED_SEED_SIZE,
   Descriptor,
   DESCRIPTOR_SIZE,
+  ADDRESS_SIZE,
+  ADDRESS_SIZE_CATEGORY_1,
+  ADDRESS_SIZE_CATEGORY_5,
+  DEFAULT_ADDRESS_SIZE,
   newMLDSA87Descriptor,
   getAddressFromPKAndDescriptor,
   addressToString,

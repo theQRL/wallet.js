@@ -1,3 +1,13 @@
+## [4.0.0](https://github.com/theQRL/wallet.js/compare/v3.0.1...v4.0.0) (2026-04-16)
+
+### ⚠ BREAKING CHANGES
+
+* variable address length
+
+### Features
+
+* variable address length ([7177fc4](https://github.com/theQRL/wallet.js/commit/7177fc4ec35322aa5c687db949277132079a7524))
+
 ## [3.0.1](https://github.com/theQRL/wallet.js/compare/v3.0.0...v3.0.1) (2026-04-03)
 
 ### Bug Fixes

@@ -3,23 +3,25 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
+	"github.com/theQRL/go-qrllib/wallet/common"
+	walletml "github.com/theQRL/go-qrllib/wallet/ml_dsa_87"
 )
 
 type WalletOutput struct {
-	Seed       string `json:"seed"`
-	PublicKey  string `json:"publicKey"`
-	Address    string `json:"address"`
-	Message    string `json:"message"`
-	MessageHex string `json:"messageHex"`
-	Signature  string `json:"signature"`
+	Seed           string `json:"seed"`
+	PublicKey      string `json:"publicKey"`
+	Descriptor     string `json:"descriptor"`
+	SigningContext string `json:"signingContext"`
+	Address        string `json:"address"`
+	Message        string `json:"message"`
+	MessageHex     string `json:"messageHex"`
+	Signature      string `json:"signature"`
 }
 
 const (
@@ -29,36 +31,37 @@ const (
 
 func main() {
 	seedBytes, _ := hex.DecodeString(testSeedHex)
+	var seed common.Seed
+	copy(seed[:], seedBytes)
 
-	// Hash the 48-byte seed with SHA256 to get 32 bytes (matching wallet.js)
-	seedHash := sha256.Sum256(seedBytes)
-
-	// Create ML-DSA-87 instance from the 32-byte seed
-	mldsa, err := ml_dsa_87.NewMLDSA87FromSeed(seedHash)
+	// Wallet-layer API builds the domain-separated signing context
+	// ("ZOND" || version || descriptor) internally, matching wallet.js.
+	wallet, err := walletml.NewWalletFromSeed(seed)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create MLDSA87: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to create wallet: %v\n", err)
 		os.Exit(1)
 	}
-	defer mldsa.Zeroize()
+	defer wallet.Zeroize()
 
-	// Sign message with "ZOND" context to match wallet.js (@theqrl/mldsa87 default)
-	ctx := []byte("ZOND")
 	message := []byte(testMessage)
-	signature, err := mldsa.Sign(ctx, message)
+	signature, err := wallet.Sign(message)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to sign: %v\n", err)
 		os.Exit(1)
 	}
 
-	pk := mldsa.GetPK()
+	pk := wallet.GetPK()
+	desc := wallet.GetDescriptor().ToDescriptor()
 
 	output := WalletOutput{
-		Seed:       testSeedHex,
-		PublicKey:  hex.EncodeToString(pk[:]),
-		Address:    "TODO: derive address",
-		Message:    testMessage,
-		MessageHex: hex.EncodeToString(message),
-		Signature:  hex.EncodeToString(signature[:]),
+		Seed:           testSeedHex,
+		PublicKey:      hex.EncodeToString(pk[:]),
+		Descriptor:     hex.EncodeToString(desc[:]),
+		SigningContext: hex.EncodeToString(common.SigningContext(desc)),
+		Address:        wallet.GetAddressStr(),
+		Message:        testMessage,
+		MessageHex:     hex.EncodeToString(message),
+		Signature:      hex.EncodeToString(signature[:]),
 	}
 
 	// Create secure output directory (remove any existing symlink/file first)

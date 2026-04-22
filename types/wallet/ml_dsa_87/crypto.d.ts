@@ -17,17 +17,21 @@ export function keygen(seed: Seed): {
  * Sign a message.
  * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes bytes)
  * @param {Uint8Array} message - Message to sign
+ * @param {Uint8Array} ctx - FIPS 204 context bytes (wallet layer passes the
+ *   domain-separated `"ZOND" || version || descriptor` context)
  * @returns {Uint8Array} signature
- * @throws {Error} If sk or message is invalid
+ * @throws {Error} If sk, message, or ctx is invalid
  */
-export function sign(sk: Uint8Array, message: Uint8Array): Uint8Array;
+export function sign(sk: Uint8Array, message: Uint8Array, ctx: Uint8Array): Uint8Array;
 /**
  * Verify a signature.
  * @param {Uint8Array} signature - Signature to verify (must be CryptoBytes bytes)
  * @param {Uint8Array} message - Original message
  * @param {Uint8Array} pk - Public key (must be CryptoPublicKeyBytes bytes)
+ * @param {Uint8Array} ctx - FIPS 204 context bytes (wallet layer passes the
+ *   domain-separated `"ZOND" || version || descriptor` context)
  * @returns {boolean}
- * @throws {Error} If signature, message, or pk is invalid
+ * @throws {Error} If signature, message, pk, or ctx is invalid
  */
-export function verify(signature: Uint8Array, message: Uint8Array, pk: Uint8Array): boolean;
+export function verify(signature: Uint8Array, message: Uint8Array, pk: Uint8Array, ctx: Uint8Array): boolean;
 //# sourceMappingURL=crypto.d.ts.map

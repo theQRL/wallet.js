@@ -2687,6 +2687,58 @@ class ExtendedSeed {
 }
 
 /**
+ * Domain-separated signing-context construction.
+ *
+ * Wallet-level sign/verify bind every signature to its descriptor via a
+ * fixed 8-byte context:
+ *
+ *   "ZOND" || SIGNING_CONTEXT_VERSION || descriptor  (4 + 1 + 3 = 8 bytes)
+ *
+ * ML-DSA-87 passes this as the FIPS 204 ctx parameter; SPHINCS+-256s
+ * (if added later) prepends it to the message. Callers do not usually
+ * need to construct the context themselves — wallet helpers do it
+ * internally — but the helper is exported for parity with go-qrllib
+ * and rust-qrllib and for advanced callers who sign outside the Wallet
+ * class.
+ *
+ * Bumping SIGNING_CONTEXT_VERSION is a hard break of the signature wire
+ * format: all signatures produced under a new version will fail to
+ * verify under the old one. A version bump must coincide with a
+ * coordinated consensus / library activation.
+ *
+ * @module wallet/common/context
+ */
+
+
+/** @type {number} Current signing-context format version. */
+const SIGNING_CONTEXT_VERSION = 0x01;
+
+/** @type {Uint8Array} Application-domain tag embedded in every context. */
+const SIGNING_CONTEXT_PREFIX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // "ZOND"
+
+/** @type {number} Fixed on-wire length of a signing context (8 bytes). */
+const SIGNING_CONTEXT_SIZE = SIGNING_CONTEXT_PREFIX.length + 1 + DESCRIPTOR_SIZE;
+
+/**
+ * Build the domain-separated bytes that bind a signature to its
+ * descriptor: `"ZOND" || SIGNING_CONTEXT_VERSION || descriptor` (8 bytes).
+ *
+ * @param {Descriptor} descriptor
+ * @returns {Uint8Array} exactly {@link SIGNING_CONTEXT_SIZE} bytes.
+ * @throws {Error} if descriptor is not a Descriptor instance.
+ */
+function signingContext(descriptor) {
+  if (!(descriptor instanceof Descriptor)) {
+    throw new Error('descriptor must be a Descriptor instance');
+  }
+  const out = new Uint8Array(SIGNING_CONTEXT_SIZE);
+  out.set(SIGNING_CONTEXT_PREFIX, 0);
+  out[SIGNING_CONTEXT_PREFIX.length] = SIGNING_CONTEXT_VERSION;
+  out.set(descriptor.toBytes(), SIGNING_CONTEXT_PREFIX.length + 1);
+  return out;
+}
+
+/**
  * ML-DSA-87-specific descriptor helpers.
  * @module /wallet/ml_dsa_87/descriptor
  */
@@ -6938,8 +6990,6 @@ function mnemonicToBin(mnemonic) {
  */
 
 
-const DEFAULT_CTX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // ZOND
-
 /**
  * Generate a keypair.
  *
@@ -6977,10 +7027,12 @@ function isBytes(input) {
  * Sign a message.
  * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes bytes)
  * @param {Uint8Array} message - Message to sign
+ * @param {Uint8Array} ctx - FIPS 204 context bytes (wallet layer passes the
+ *   domain-separated `"ZOND" || version || descriptor` context)
  * @returns {Uint8Array} signature
- * @throws {Error} If sk or message is invalid
+ * @throws {Error} If sk, message, or ctx is invalid
  */
-function sign(sk, message) {
+function sign(sk, message, ctx) {
   if (!isBytes(sk)) {
     throw new Error('sk must be Uint8Array or Buffer');
   }
@@ -6990,8 +7042,11 @@ function sign(sk, message) {
   if (!isBytes(message)) {
     throw new Error('message must be Uint8Array or Buffer');
   }
+  if (!isBytes(ctx)) {
+    throw new Error('ctx must be Uint8Array or Buffer');
+  }
 
-  const sm = cryptoSign(message, sk, false, DEFAULT_CTX);
+  const sm = cryptoSign(message, sk, false, ctx);
   const signature = sm.slice(0, CryptoBytes);
   return signature;
 }
@@ -7001,10 +7056,12 @@ function sign(sk, message) {
  * @param {Uint8Array} signature - Signature to verify (must be CryptoBytes bytes)
  * @param {Uint8Array} message - Original message
  * @param {Uint8Array} pk - Public key (must be CryptoPublicKeyBytes bytes)
+ * @param {Uint8Array} ctx - FIPS 204 context bytes (wallet layer passes the
+ *   domain-separated `"ZOND" || version || descriptor` context)
  * @returns {boolean}
- * @throws {Error} If signature, message, or pk is invalid
+ * @throws {Error} If signature, message, pk, or ctx is invalid
  */
-function verify(signature, message, pk) {
+function verify(signature, message, pk, ctx) {
   if (!isBytes(signature)) {
     throw new Error('signature must be Uint8Array or Buffer');
   }
@@ -7020,11 +7077,14 @@ function verify(signature, message, pk) {
   if (pk.length !== CryptoPublicKeyBytes) {
     throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
   }
+  if (!isBytes(ctx)) {
+    throw new Error('ctx must be Uint8Array or Buffer');
+  }
 
   const sigBytes = new Uint8Array(signature);
   const msgBytes = new Uint8Array(message);
   const pkBytes = new Uint8Array(pk);
-  return cryptoSignVerify(sigBytes, msgBytes, pkBytes, DEFAULT_CTX);
+  return cryptoSignVerify(sigBytes, msgBytes, pkBytes, ctx);
 }
 
 /**
@@ -7195,24 +7255,28 @@ class Wallet {
   }
 
   /**
-   * Sign a message.
+   * Sign a message. The wallet binds the signature to its descriptor via
+   * the domain-separated signing context; callers do not need to pass it
+   * explicitly.
    * @param {Uint8Array} message
    * @returns {Uint8Array} Signature bytes.
    */
   sign(message) {
     this._requireLive();
-    return sign(this.sk, message);
+    return sign(this.sk, message, signingContext(this.descriptor));
   }
 
   /**
-   * Verify a signature.
+   * Verify a signature. The descriptor is required so verification uses
+   * the same domain-separated context that signing did.
    * @param {Uint8Array} signature
    * @param {Uint8Array} message
    * @param {Uint8Array} pk
+   * @param {Descriptor} descriptor
    * @returns {boolean}
    */
-  static verify(signature, message, pk) {
-    return verify(signature, message, pk);
+  static verify(signature, message, pk, descriptor) {
+    return verify(signature, message, pk, signingContext(descriptor));
   }
 
   /**
@@ -7318,6 +7382,9 @@ exports.EXTENDED_SEED_SIZE = EXTENDED_SEED_SIZE;
 exports.ExtendedSeed = ExtendedSeed;
 exports.MLDSA87 = Wallet;
 exports.SEED_SIZE = SEED_SIZE;
+exports.SIGNING_CONTEXT_PREFIX = SIGNING_CONTEXT_PREFIX;
+exports.SIGNING_CONTEXT_SIZE = SIGNING_CONTEXT_SIZE;
+exports.SIGNING_CONTEXT_VERSION = SIGNING_CONTEXT_VERSION;
 exports.Seed = Seed;
 exports.WalletType = WalletType;
 exports.addressToString = addressToString;
@@ -7325,4 +7392,5 @@ exports.getAddressFromPKAndDescriptor = getAddressFromPKAndDescriptor;
 exports.isValidAddress = isValidAddress;
 exports.newMLDSA87Descriptor = newMLDSA87Descriptor;
 exports.newWalletFromExtendedSeed = newWalletFromExtendedSeed;
+exports.signingContext = signingContext;
 exports.stringToAddress = stringToAddress;

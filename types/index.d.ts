@@ -8,6 +8,10 @@ import { ADDRESS_SIZE } from './wallet/common/constants.js';
 import { ADDRESS_SIZE_CATEGORY_1 } from './wallet/common/constants.js';
 import { ADDRESS_SIZE_CATEGORY_5 } from './wallet/common/constants.js';
 import { DEFAULT_ADDRESS_SIZE } from './wallet/common/constants.js';
+import { SIGNING_CONTEXT_PREFIX } from './wallet/common/context.js';
+import { SIGNING_CONTEXT_SIZE } from './wallet/common/context.js';
+import { SIGNING_CONTEXT_VERSION } from './wallet/common/context.js';
+import { signingContext } from './wallet/common/context.js';
 import { newMLDSA87Descriptor } from './wallet/ml_dsa_87/descriptor.js';
 import { getAddressFromPKAndDescriptor } from './wallet/common/address.js';
 import { addressToString } from './wallet/common/address.js';
@@ -16,5 +20,5 @@ import { isValidAddress } from './wallet/common/address.js';
 import { WalletType } from './wallet/common/wallettype.js';
 import { newWalletFromExtendedSeed } from './wallet/factory.js';
 import { Wallet as MLDSA87 } from './wallet/ml_dsa_87/wallet.js';
-export { Seed, SEED_SIZE, ExtendedSeed, EXTENDED_SEED_SIZE, Descriptor, DESCRIPTOR_SIZE, ADDRESS_SIZE, ADDRESS_SIZE_CATEGORY_1, ADDRESS_SIZE_CATEGORY_5, DEFAULT_ADDRESS_SIZE, newMLDSA87Descriptor, getAddressFromPKAndDescriptor, addressToString, stringToAddress, isValidAddress, WalletType, newWalletFromExtendedSeed, MLDSA87 };
+export { Seed, SEED_SIZE, ExtendedSeed, EXTENDED_SEED_SIZE, Descriptor, DESCRIPTOR_SIZE, ADDRESS_SIZE, ADDRESS_SIZE_CATEGORY_1, ADDRESS_SIZE_CATEGORY_5, DEFAULT_ADDRESS_SIZE, SIGNING_CONTEXT_PREFIX, SIGNING_CONTEXT_SIZE, SIGNING_CONTEXT_VERSION, signingContext, newMLDSA87Descriptor, getAddressFromPKAndDescriptor, addressToString, stringToAddress, isValidAddress, WalletType, newWalletFromExtendedSeed, MLDSA87 };
 //# sourceMappingURL=index.d.ts.map

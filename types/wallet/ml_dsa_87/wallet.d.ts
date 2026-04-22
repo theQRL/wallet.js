@@ -26,13 +26,15 @@ export class Wallet {
      */
     static newWalletFromMnemonic(mnemonic: string, addressSize?: number): Wallet;
     /**
-     * Verify a signature.
+     * Verify a signature. The descriptor is required so verification uses
+     * the same domain-separated context that signing did.
      * @param {Uint8Array} signature
      * @param {Uint8Array} message
      * @param {Uint8Array} pk
+     * @param {Descriptor} descriptor
      * @returns {boolean}
      */
-    static verify(signature: Uint8Array, message: Uint8Array, pk: Uint8Array): boolean;
+    static verify(signature: Uint8Array, message: Uint8Array, pk: Uint8Array, descriptor: Descriptor): boolean;
     /**
      * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array, addressSize?: number}} opts
      */
@@ -88,7 +90,9 @@ export class Wallet {
      */
     getSK(): Uint8Array;
     /**
-     * Sign a message.
+     * Sign a message. The wallet binds the signature to its descriptor via
+     * the domain-separated signing context; callers do not need to pass it
+     * explicitly.
      * @param {Uint8Array} message
      * @returns {Uint8Array} Signature bytes.
      */

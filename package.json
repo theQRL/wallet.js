@@ -87,14 +87,18 @@
     "eslint-plugin-import-x": {
       "eslint": "$eslint"
     },
-    "serialize-javascript": "7.0.3",
+    "serialize-javascript": "7.0.5",
     "minimatch": "10.2.4",
     "glob": "13.0.6",
     "tar": "7.5.11",
     "diff": "8.0.3",
+    "picomatch": "4.0.4",
+    "brace-expansion": "5.0.5",
     "npm": {
       ".": "11.11.1",
-      "minimatch": "10.2.4"
+      "minimatch": "10.2.4",
+      "picomatch": "4.0.4",
+      "brace-expansion": "5.0.5"
     }
   }
 }

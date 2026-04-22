@@ -8,6 +8,7 @@ import { randomBytes } from '../../utils/random.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
 import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
 import { DEFAULT_ADDRESS_SIZE } from '../common/constants.js';
+import { signingContext } from '../common/context.js';
 import { Descriptor } from '../common/descriptor.js';
 import { Seed, ExtendedSeed } from '../common/seed.js';
 import { newMLDSA87Descriptor } from './descriptor.js';
@@ -175,24 +176,28 @@ class Wallet {
   }
 
   /**
-   * Sign a message.
+   * Sign a message. The wallet binds the signature to its descriptor via
+   * the domain-separated signing context; callers do not need to pass it
+   * explicitly.
    * @param {Uint8Array} message
    * @returns {Uint8Array} Signature bytes.
    */
   sign(message) {
     this._requireLive();
-    return sign(this.sk, message);
+    return sign(this.sk, message, signingContext(this.descriptor));
   }
 
   /**
-   * Verify a signature.
+   * Verify a signature. The descriptor is required so verification uses
+   * the same domain-separated context that signing did.
    * @param {Uint8Array} signature
    * @param {Uint8Array} message
    * @param {Uint8Array} pk
+   * @param {Descriptor} descriptor
    * @returns {boolean}
    */
-  static verify(signature, message, pk) {
-    return verify(signature, message, pk);
+  static verify(signature, message, pk, descriptor) {
+    return verify(signature, message, pk, signingContext(descriptor));
   }
 
   /**

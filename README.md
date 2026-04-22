@@ -37,8 +37,9 @@ console.log('Mnemonic:', wallet.getMnemonic());
 const message = new TextEncoder().encode('Hello QRL!');
 const signature = wallet.sign(message);
 
-// Verify signature
-const isValid = MLDSA87.verify(signature, message, wallet.getPK());
+// Verify signature (descriptor is required so verification uses the
+// same domain-separated context as signing)
+const isValid = MLDSA87.verify(signature, message, wallet.getPK(), wallet.getDescriptor());
 console.log('Valid:', isValid); // true
 
 // Clean up sensitive data
@@ -112,7 +113,25 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 
 | Method | Description |
 |--------|-------------|
-| `MLDSA87.verify(signature, message, pk)` | Verify a signature, returns `boolean` |
+| `MLDSA87.verify(signature, message, pk, descriptor)` | Verify a signature, returns `boolean`. The descriptor is required so verification uses the same domain-separated context as signing |
+
+### Signing Context
+
+Every wallet-level signature is bound to its descriptor via an 8-byte domain-separated context:
+
+```
+"ZOND" || SIGNING_CONTEXT_VERSION || descriptor   (4 + 1 + 3 bytes)
+```
+
+ML-DSA-87 passes this as the FIPS 204 ctx parameter. Callers do not usually need to construct it — `wallet.sign(message)` and `MLDSA87.verify(sig, msg, pk, descriptor)` do it internally — but the helper is exported for advanced callers and cross-implementation parity with [go-qrllib](https://github.com/theQRL/go-qrllib):
+
+```javascript
+import { signingContext, SIGNING_CONTEXT_VERSION } from '@theqrl/wallet.js';
+
+const ctx = signingContext(wallet.getDescriptor()); // Uint8Array(8)
+```
+
+Bumping `SIGNING_CONTEXT_VERSION` is a hard break of the signature wire format: signatures produced under a new version will not verify under the old one. A version bump must coincide with a coordinated consensus / library activation.
 
 ### Configurable Address Size
 

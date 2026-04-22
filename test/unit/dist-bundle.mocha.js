@@ -44,7 +44,7 @@ describe('dist bundle smoke tests', () => {
         const w = MLDSA87.newWallet();
         const msg = new TextEncoder().encode('test');
         const sig = w.sign(msg);
-        const ok = MLDSA87.verify(sig, msg, w.getPK());
+        const ok = MLDSA87.verify(sig, msg, w.getPK(), w.getDescriptor());
         console.log(ok);
       `);
       expect(stdout.trim()).to.equal('true');
@@ -83,7 +83,7 @@ describe('dist bundle smoke tests', () => {
         const w = MLDSA87.newWallet();
         const msg = new TextEncoder().encode('test');
         const sig = w.sign(msg);
-        const ok = MLDSA87.verify(sig, msg, w.getPK());
+        const ok = MLDSA87.verify(sig, msg, w.getPK(), w.getDescriptor());
         console.log(ok);
       `,
         { cjs: true }

@@ -27,7 +27,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
       fc.assert(
         fc.property(fc.uint8Array({ minLength: 0, maxLength: 10000 }), (message) => {
           const sig = wallet.sign(message);
-          return MLDSA87.verify(sig, message, wallet.getPK()) === true;
+          return MLDSA87.verify(sig, message, wallet.getPK(), wallet.getDescriptor()) === true;
         }),
         { numRuns: 100 }
       );
@@ -44,7 +44,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
               return true;
             }
             const sig = wallet.sign(msg1);
-            return MLDSA87.verify(sig, msg2, wallet.getPK()) === false;
+            return MLDSA87.verify(sig, msg2, wallet.getPK(), wallet.getDescriptor()) === false;
           }
         ),
         { numRuns: 50 }
@@ -56,7 +56,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
         fc.property(fc.uint8Array({ minLength: 0, maxLength: 1000 }), (message) => {
           const otherWallet = MLDSA87.newWallet();
           const sig = wallet.sign(message);
-          return MLDSA87.verify(sig, message, otherWallet.getPK()) === false;
+          return MLDSA87.verify(sig, message, otherWallet.getPK(), wallet.getDescriptor()) === false;
         }),
         { numRuns: 20 }
       );
@@ -71,7 +71,7 @@ describe('Fuzz Tests (Property-Based)', function propertyBasedTests() {
             const sig = wallet.sign(message);
             const tamperedSig = new Uint8Array(sig);
             tamperedSig[tamperIndex] ^= 0x01;
-            return MLDSA87.verify(tamperedSig, message, wallet.getPK()) === false;
+            return MLDSA87.verify(tamperedSig, message, wallet.getPK(), wallet.getDescriptor()) === false;
           }
         ),
         { numRuns: 50 }

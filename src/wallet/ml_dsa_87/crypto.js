@@ -11,8 +11,6 @@ import {
   CryptoSecretKeyBytes,
 } from '@theqrl/mldsa87';
 
-const DEFAULT_CTX = new Uint8Array([0x5a, 0x4f, 0x4e, 0x44]); // ZOND
-
 /**
  * Generate a keypair.
  *
@@ -50,10 +48,12 @@ function isBytes(input) {
  * Sign a message.
  * @param {Uint8Array} sk - Secret key (must be CryptoSecretKeyBytes bytes)
  * @param {Uint8Array} message - Message to sign
+ * @param {Uint8Array} ctx - FIPS 204 context bytes (wallet layer passes the
+ *   domain-separated `"ZOND" || version || descriptor` context)
  * @returns {Uint8Array} signature
- * @throws {Error} If sk or message is invalid
+ * @throws {Error} If sk, message, or ctx is invalid
  */
-function sign(sk, message) {
+function sign(sk, message, ctx) {
   if (!isBytes(sk)) {
     throw new Error('sk must be Uint8Array or Buffer');
   }
@@ -63,8 +63,11 @@ function sign(sk, message) {
   if (!isBytes(message)) {
     throw new Error('message must be Uint8Array or Buffer');
   }
+  if (!isBytes(ctx)) {
+    throw new Error('ctx must be Uint8Array or Buffer');
+  }
 
-  const sm = cryptoSign(message, sk, false, DEFAULT_CTX);
+  const sm = cryptoSign(message, sk, false, ctx);
   const signature = sm.slice(0, CryptoBytes);
   return signature;
 }
@@ -74,10 +77,12 @@ function sign(sk, message) {
  * @param {Uint8Array} signature - Signature to verify (must be CryptoBytes bytes)
  * @param {Uint8Array} message - Original message
  * @param {Uint8Array} pk - Public key (must be CryptoPublicKeyBytes bytes)
+ * @param {Uint8Array} ctx - FIPS 204 context bytes (wallet layer passes the
+ *   domain-separated `"ZOND" || version || descriptor` context)
  * @returns {boolean}
- * @throws {Error} If signature, message, or pk is invalid
+ * @throws {Error} If signature, message, pk, or ctx is invalid
  */
-function verify(signature, message, pk) {
+function verify(signature, message, pk, ctx) {
   if (!isBytes(signature)) {
     throw new Error('signature must be Uint8Array or Buffer');
   }
@@ -93,11 +98,14 @@ function verify(signature, message, pk) {
   if (pk.length !== CryptoPublicKeyBytes) {
     throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
   }
+  if (!isBytes(ctx)) {
+    throw new Error('ctx must be Uint8Array or Buffer');
+  }
 
   const sigBytes = new Uint8Array(signature);
   const msgBytes = new Uint8Array(message);
   const pkBytes = new Uint8Array(pk);
-  return cryptoSignVerify(sigBytes, msgBytes, pkBytes, DEFAULT_CTX);
+  return cryptoSignVerify(sigBytes, msgBytes, pkBytes, ctx);
 }
 
 export { keygen, sign, verify };

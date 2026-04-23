@@ -8,115 +8,122 @@ import { CryptoBytes, CryptoPublicKeyBytes, CryptoSecretKeyBytes } from '@theqrl
 import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
 import { sign, verify } from '../../src/wallet/ml_dsa_87/crypto.js';
 import { addressToString, stringToAddress, isValidAddress } from '../../src/wallet/common/address.js';
+import { signingContext } from '../../src/wallet/common/context.js';
 import { newWalletFromExtendedSeed } from '../../src/wallet/factory.js';
 import { WalletType } from '../../src/wallet/common/wallettype.js';
 
 describe('Edge Cases', () => {
   let wallet;
+  let ctx;
 
   before(() => {
     wallet = MLDSA87.newWallet();
+    ctx = signingContext(wallet.getDescriptor());
   });
 
   describe('Message Size Edge Cases', () => {
     it('signs and verifies empty message', () => {
       const msg = new Uint8Array(0);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
 
     it('signs and verifies single-byte message', () => {
       const msg = new Uint8Array([0x00]);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
 
     it('signs and verifies single-byte message (0xff)', () => {
       const msg = new Uint8Array([0xff]);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
 
     it('signs and verifies 1KB message', () => {
       const msg = new Uint8Array(1024).fill(0xab);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
 
     it('signs and verifies 64KB message', () => {
       const msg = new Uint8Array(64 * 1024).fill(0xcd);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
 
     it('signs and verifies 1MB message', () => {
       const msg = new Uint8Array(1024 * 1024).fill(0xef);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     }).timeout(10000);
 
     it('signs and verifies message with all zero bytes', () => {
       const msg = new Uint8Array(256).fill(0x00);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
 
     it('signs and verifies message with all 0xff bytes', () => {
       const msg = new Uint8Array(256).fill(0xff);
       const sig = wallet.sign(msg);
-      expect(MLDSA87.verify(sig, msg, wallet.getPK())).to.equal(true);
+      expect(MLDSA87.verify(sig, msg, wallet.getPK(), wallet.getDescriptor())).to.equal(true);
     });
   });
 
   describe('Sign Input Validation', () => {
     it('rejects null secret key', () => {
-      expect(() => sign(null, utf8ToBytes('test'))).to.throw('sk must be Uint8Array or Buffer');
+      expect(() => sign(null, utf8ToBytes('test'), ctx)).to.throw('sk must be Uint8Array or Buffer');
     });
 
     it('rejects undefined secret key', () => {
-      expect(() => sign(undefined, utf8ToBytes('test'))).to.throw('sk must be Uint8Array or Buffer');
+      expect(() => sign(undefined, utf8ToBytes('test'), ctx)).to.throw('sk must be Uint8Array or Buffer');
     });
 
     it('rejects string secret key', () => {
-      expect(() => sign('not-bytes', utf8ToBytes('test'))).to.throw('sk must be Uint8Array or Buffer');
+      expect(() => sign('not-bytes', utf8ToBytes('test'), ctx)).to.throw('sk must be Uint8Array or Buffer');
     });
 
     it('rejects array secret key', () => {
-      expect(() => sign([1, 2, 3], utf8ToBytes('test'))).to.throw('sk must be Uint8Array or Buffer');
+      expect(() => sign([1, 2, 3], utf8ToBytes('test'), ctx)).to.throw('sk must be Uint8Array or Buffer');
     });
 
     it('rejects wrong-length secret key', () => {
       const badSk = new Uint8Array(100);
-      expect(() => sign(badSk, utf8ToBytes('test'))).to.throw(`sk must be ${CryptoSecretKeyBytes} bytes`);
+      expect(() => sign(badSk, utf8ToBytes('test'), ctx)).to.throw(`sk must be ${CryptoSecretKeyBytes} bytes`);
     });
 
     it('rejects null message', () => {
-      expect(() => sign(wallet.getSK(), null)).to.throw('message must be Uint8Array or Buffer');
+      expect(() => sign(wallet.getSK(), null, ctx)).to.throw('message must be Uint8Array or Buffer');
     });
 
     it('rejects undefined message', () => {
-      expect(() => sign(wallet.getSK(), undefined)).to.throw('message must be Uint8Array or Buffer');
+      expect(() => sign(wallet.getSK(), undefined, ctx)).to.throw('message must be Uint8Array or Buffer');
     });
 
     it('rejects string message', () => {
-      expect(() => sign(wallet.getSK(), 'string-message')).to.throw('message must be Uint8Array or Buffer');
+      expect(() => sign(wallet.getSK(), 'string-message', ctx)).to.throw('message must be Uint8Array or Buffer');
     });
 
     it('rejects number message', () => {
-      expect(() => sign(wallet.getSK(), 12345)).to.throw('message must be Uint8Array or Buffer');
+      expect(() => sign(wallet.getSK(), 12345, ctx)).to.throw('message must be Uint8Array or Buffer');
+    });
+
+    it('rejects non-bytes ctx', () => {
+      expect(() => sign(wallet.getSK(), utf8ToBytes('test'), null)).to.throw('ctx must be Uint8Array or Buffer');
     });
 
     it('accepts Buffer secret key', () => {
       const sk = Buffer.from(wallet.getSK());
       const msg = utf8ToBytes('test');
-      const sig = sign(sk, msg);
+      const sig = sign(sk, msg, ctx);
       expect(sig).to.be.instanceOf(Uint8Array);
       expect(sig.length).to.equal(CryptoBytes);
     });
 
     it('accepts Buffer message', () => {
       const msg = Buffer.from('test message');
-      const sig = sign(wallet.getSK(), msg);
+      const sig = sign(wallet.getSK(), msg, ctx);
       expect(sig).to.be.instanceOf(Uint8Array);
     });
   });
@@ -130,65 +137,71 @@ describe('Edge Cases', () => {
     });
 
     it('rejects null signature', () => {
-      expect(() => verify(null, validMsg, wallet.getPK())).to.throw('signature must be Uint8Array or Buffer');
+      expect(() => verify(null, validMsg, wallet.getPK(), ctx)).to.throw('signature must be Uint8Array or Buffer');
     });
 
     it('rejects undefined signature', () => {
-      expect(() => verify(undefined, validMsg, wallet.getPK())).to.throw('signature must be Uint8Array or Buffer');
+      expect(() => verify(undefined, validMsg, wallet.getPK(), ctx)).to.throw('signature must be Uint8Array or Buffer');
     });
 
     it('rejects string signature', () => {
-      expect(() => verify('not-bytes', validMsg, wallet.getPK())).to.throw('signature must be Uint8Array or Buffer');
+      expect(() => verify('not-bytes', validMsg, wallet.getPK(), ctx)).to.throw(
+        'signature must be Uint8Array or Buffer'
+      );
     });
 
     it('rejects wrong-length signature', () => {
       const badSig = new Uint8Array(100);
-      expect(() => verify(badSig, validMsg, wallet.getPK())).to.throw(`signature must be ${CryptoBytes} bytes`);
+      expect(() => verify(badSig, validMsg, wallet.getPK(), ctx)).to.throw(`signature must be ${CryptoBytes} bytes`);
     });
 
     it('rejects null message', () => {
-      expect(() => verify(validSig, null, wallet.getPK())).to.throw('message must be Uint8Array or Buffer');
+      expect(() => verify(validSig, null, wallet.getPK(), ctx)).to.throw('message must be Uint8Array or Buffer');
     });
 
     it('rejects string message', () => {
-      expect(() => verify(validSig, 'string', wallet.getPK())).to.throw('message must be Uint8Array or Buffer');
+      expect(() => verify(validSig, 'string', wallet.getPK(), ctx)).to.throw('message must be Uint8Array or Buffer');
     });
 
     it('rejects null public key', () => {
-      expect(() => verify(validSig, validMsg, null)).to.throw('pk must be Uint8Array or Buffer');
+      expect(() => verify(validSig, validMsg, null, ctx)).to.throw('pk must be Uint8Array or Buffer');
     });
 
     it('rejects string public key', () => {
-      expect(() => verify(validSig, validMsg, 'not-bytes')).to.throw('pk must be Uint8Array or Buffer');
+      expect(() => verify(validSig, validMsg, 'not-bytes', ctx)).to.throw('pk must be Uint8Array or Buffer');
     });
 
     it('rejects wrong-length public key', () => {
       const badPk = new Uint8Array(100);
-      expect(() => verify(validSig, validMsg, badPk)).to.throw(`pk must be ${CryptoPublicKeyBytes} bytes`);
+      expect(() => verify(validSig, validMsg, badPk, ctx)).to.throw(`pk must be ${CryptoPublicKeyBytes} bytes`);
+    });
+
+    it('rejects non-bytes ctx', () => {
+      expect(() => verify(validSig, validMsg, wallet.getPK(), null)).to.throw('ctx must be Uint8Array or Buffer');
     });
 
     it('accepts Buffer inputs', () => {
       const sigBuf = Buffer.from(validSig);
       const msgBuf = Buffer.from(validMsg);
       const pkBuf = Buffer.from(wallet.getPK());
-      expect(verify(sigBuf, msgBuf, pkBuf)).to.equal(true);
+      expect(verify(sigBuf, msgBuf, pkBuf, ctx)).to.equal(true);
     });
 
     it('returns false for wrong public key', () => {
       const otherWallet = MLDSA87.newWallet();
-      expect(verify(validSig, validMsg, otherWallet.getPK())).to.equal(false);
+      expect(verify(validSig, validMsg, otherWallet.getPK(), ctx)).to.equal(false);
     });
 
     it('returns false for modified message', () => {
       const modifiedMsg = new Uint8Array(validMsg);
       modifiedMsg[0] ^= 0x01;
-      expect(verify(validSig, modifiedMsg, wallet.getPK())).to.equal(false);
+      expect(verify(validSig, modifiedMsg, wallet.getPK(), ctx)).to.equal(false);
     });
 
     it('returns false for modified signature', () => {
       const modifiedSig = new Uint8Array(validSig);
       modifiedSig[0] ^= 0x01;
-      expect(verify(modifiedSig, validMsg, wallet.getPK())).to.equal(false);
+      expect(verify(modifiedSig, validMsg, wallet.getPK(), ctx)).to.equal(false);
     });
   });
 

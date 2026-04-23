@@ -170,7 +170,10 @@ describe('ML-DSA-87 Wallet', () => {
         const sig = hexToBytes(tc.wantSignature);
         const pk = hexToBytes(tc.wantPK);
         const msg = utf8ToBytes(tc.message);
-        expect(MLDSA87.verify(sig, msg, pk)).to.equal(true);
+        // Rebuild the wallet to recover the canonical descriptor embedded in
+        // the signing context; verification is bound to it.
+        const desc = MLDSA87.newWalletFromMnemonic(tc.wantMnemonic).getDescriptor();
+        expect(MLDSA87.verify(sig, msg, pk, desc)).to.equal(true);
       });
     });
   });
@@ -187,21 +190,22 @@ describe('ML-DSA-87 Wallet', () => {
         const w = MLDSA87.newWallet();
         const sig = w.sign(t.msg);
         const pk = w.getPK();
+        const desc = w.getDescriptor();
 
-        expect(MLDSA87.verify(sig, t.msg, pk)).to.equal(true);
+        expect(MLDSA87.verify(sig, t.msg, pk, desc)).to.equal(true);
 
         // tamper message
         if (t.msg.length > 0) {
           const tampered = new Uint8Array(t.msg);
           tampered[0] ^= 0x01;
-          expect(MLDSA87.verify(sig, tampered, pk)).to.equal(false);
+          expect(MLDSA87.verify(sig, tampered, pk, desc)).to.equal(false);
         }
 
         // tamper signature
         if (sig.length > 0) {
           const tampered = new Uint8Array(sig);
           tampered[0] ^= 0x01;
-          expect(MLDSA87.verify(tampered, t.msg, pk)).to.equal(false);
+          expect(MLDSA87.verify(tampered, t.msg, pk, desc)).to.equal(false);
         }
       });
     });

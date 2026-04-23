@@ -19,6 +19,12 @@ import {
   addressToString,
 } from './wallet/common/address.js';
 import { ExtendedSeed, Seed } from './wallet/common/seed.js';
+import {
+  SIGNING_CONTEXT_PREFIX,
+  SIGNING_CONTEXT_SIZE,
+  SIGNING_CONTEXT_VERSION,
+  signingContext,
+} from './wallet/common/context.js';
 import { newMLDSA87Descriptor } from './wallet/ml_dsa_87/descriptor.js';
 import { Descriptor } from './wallet/common/descriptor.js';
 import { newWalletFromExtendedSeed } from './wallet/factory.js';
@@ -36,6 +42,10 @@ export {
   ADDRESS_SIZE_CATEGORY_1,
   ADDRESS_SIZE_CATEGORY_5,
   DEFAULT_ADDRESS_SIZE,
+  SIGNING_CONTEXT_PREFIX,
+  SIGNING_CONTEXT_SIZE,
+  SIGNING_CONTEXT_VERSION,
+  signingContext,
   newMLDSA87Descriptor,
   getAddressFromPKAndDescriptor,
   addressToString,

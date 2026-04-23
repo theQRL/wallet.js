@@ -7,6 +7,7 @@ import fs from 'fs';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { Wallet } from '../../src/wallet/ml_dsa_87/wallet.js';
 import { Seed } from '../../src/wallet/common/seed.js';
+import { signingContext } from '../../src/wallet/common/context.js';
 
 // Fixed test seed for reproducible results
 const TEST_SEED_HEX =
@@ -21,9 +22,12 @@ async function main() {
   const message = Buffer.from(TEST_MESSAGE, 'utf-8');
   const signature = wallet.sign(message);
 
+  const descriptor = wallet.getDescriptor();
   const output = {
     seed: TEST_SEED_HEX,
     publicKey: bytesToHex(wallet.getPK()),
+    descriptor: bytesToHex(descriptor.toBytes()),
+    signingContext: bytesToHex(signingContext(descriptor)),
     address: wallet.getAddressStr(),
     message: TEST_MESSAGE,
     messageHex: bytesToHex(message),

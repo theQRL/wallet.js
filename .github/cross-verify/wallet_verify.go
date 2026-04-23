@@ -8,16 +8,19 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
+	walletml "github.com/theQRL/go-qrllib/wallet/ml_dsa_87"
+	"github.com/theQRL/go-qrllib/wallet/common/descriptor"
 )
 
 type WalletOutput struct {
-	Seed       string `json:"seed"`
-	PublicKey  string `json:"publicKey"`
-	Address    string `json:"address"`
-	Message    string `json:"message"`
-	MessageHex string `json:"messageHex"`
-	Signature  string `json:"signature"`
+	Seed           string `json:"seed"`
+	PublicKey      string `json:"publicKey"`
+	Descriptor     string `json:"descriptor"`
+	SigningContext string `json:"signingContext"`
+	Address        string `json:"address"`
+	Message        string `json:"message"`
+	MessageHex     string `json:"messageHex"`
+	Signature      string `json:"signature"`
 }
 
 func main() {
@@ -36,21 +39,22 @@ func main() {
 	signatureBytes, _ := hex.DecodeString(output.Signature)
 	messageBytes, _ := hex.DecodeString(output.MessageHex)
 	publicKeyBytes, _ := hex.DecodeString(output.PublicKey)
+	descriptorBytes, _ := hex.DecodeString(output.Descriptor)
 
-	// Convert to fixed-size arrays as required by go-qrllib
-	var signature [ml_dsa_87.CRYPTO_BYTES]uint8
-	copy(signature[:], signatureBytes)
-
-	var pk [ml_dsa_87.CRYPTO_PUBLIC_KEY_BYTES]uint8
+	var pk walletml.PK
 	copy(pk[:], publicKeyBytes)
+
+	var desc [descriptor.DescriptorSize]byte
+	copy(desc[:], descriptorBytes)
 
 	fmt.Println("Verifying wallet.js signature with go-qrllib...")
 	fmt.Printf("  Address: %s\n", output.Address)
 	fmt.Printf("  Message: %s\n", output.Message)
+	fmt.Printf("  Descriptor: %s\n", output.Descriptor)
 
-	// Use "ZOND" context to match wallet.js (@theqrl/mldsa87 default)
-	ctx := []byte("ZOND")
-	isValid := ml_dsa_87.Verify(ctx, messageBytes, signature, &pk)
+	// Wallet-level Verify binds the signature to the descriptor via the
+	// domain-separated signing context (`"ZOND" || version || descriptor`).
+	isValid := walletml.Verify(messageBytes, signatureBytes, &pk, desc)
 
 	if isValid {
 		fmt.Println("PASSED: wallet.js signature verified successfully")

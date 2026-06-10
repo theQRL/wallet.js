@@ -4,6 +4,7 @@
  */
 
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { CryptoPublicKeyBytes, CryptoSecretKeyBytes } from '@theqrl/mldsa87';
 import { randomBytes } from '../../utils/random.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
 import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
@@ -26,8 +27,34 @@ const SECRET_FIELDS = ['seed', 'sk', 'extendedSeed', '_zeroized'];
 class Wallet {
   /**
    * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
+   *
+   * Ownership contract: the constructor takes ownership of every object and
+   * buffer passed in. Callers constructing a Wallet directly must not
+   * retain, mutate, or zeroize `descriptor`, `seed`, `pk`, or `sk` after
+   * construction — `zeroize()` assumes the wallet is their sole owner.
+   * The static factories uphold this internally; `newWalletFromSeed`
+   * defensively copies the caller's Seed so external code never shares
+   * secret-bearing state with a Wallet.
    */
   constructor({ descriptor, seed, pk, sk }) {
+    if (!(descriptor instanceof Descriptor)) {
+      throw new Error('descriptor must be a Descriptor instance');
+    }
+    if (!(seed instanceof Seed)) {
+      throw new Error('seed must be a Seed instance');
+    }
+    if (!(pk instanceof Uint8Array)) {
+      throw new Error('pk must be a Uint8Array');
+    }
+    if (pk.length !== CryptoPublicKeyBytes) {
+      throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
+    }
+    if (!(sk instanceof Uint8Array)) {
+      throw new Error('sk must be a Uint8Array');
+    }
+    if (sk.length !== CryptoSecretKeyBytes) {
+      throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
+    }
     this.descriptor = descriptor;
     this.seed = seed;
     this.pk = pk;
@@ -58,6 +85,14 @@ class Wallet {
   }
 
   /**
+   * Create a wallet deterministically from an existing seed.
+   *
+   * The caller's `Seed` instance is **defensively copied**: the wallet and
+   * the caller's object have independent lifecycles. Zeroizing the input
+   * Seed afterwards does not affect the wallet, and `wallet.zeroize()`
+   * does not reach the caller's instance — the caller stays responsible
+   * for zeroizing their own copy.
+   *
    * @param {Seed} seed
    * @param {[number, number]} [metadata=[0,0]]
    * @returns {Wallet}
@@ -65,7 +100,14 @@ class Wallet {
   static newWalletFromSeed(seed, metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    // Copy the caller's Seed so no secret-bearing state is shared across
+    // the API boundary; zeroize the transient byte buffer once wrapped.
+    const seedBytes = seed.toBytes();
+    try {
+      return new Wallet({ descriptor, seed: new Seed(seedBytes), pk, sk });
+    } finally {
+      seedBytes.fill(0);
+    }
   }
 
   /**
@@ -253,33 +295,26 @@ class Wallet {
     if (!(pk instanceof Uint8Array)) {
       return { ok: false, reason: 'invalid-pk-type' };
     }
-    // Length checks delegate to the lower layer; we re-classify the
-    // lower layer's typed errors into our reason taxonomy here. The
-    // final `throw e` in the catch block below is a defensive safety
-    // net — the lower-layer `verify`'s complete error taxonomy
-    // ({sk,signature,message,pk,ctx} × {type,length}) is fully
-    // classified into the `if` branches above. If a future lower-layer
-    // change introduces an error message we haven't classified yet,
-    // we want the surprise to propagate rather than be silently
-    // collapsed into 'verification-failed'. The re-raise is therefore
-    // unreachable from any current public-API call site; covered by
-    // inspection rather than by a test that would have to monkey-patch
-    // the lower layer.
+    // Length checks delegate to the lower layer, whose validation errors
+    // carry stable machine-readable `code`s (see crypto.js `typedError`);
+    // we classify by code, never by message text. The final `throw e` in
+    // the catch block below is a defensive safety net — given the type
+    // pre-checks above, the only lower-layer failures reachable here are
+    // the two length codes. If a future lower-layer change introduces an
+    // unclassified error, we want the surprise to propagate rather than
+    // be silently collapsed into 'verification-failed'. The re-raise is
+    // therefore unreachable from any current public-API call site;
+    // covered by inspection rather than by a test that would have to
+    // monkey-patch the lower layer.
     try {
       const ok = verify(signature, message, pk, signingContext(descriptor));
       return ok ? { ok: true } : { ok: false, reason: 'verification-failed' };
     } catch (e) {
-      // `e && e.message || e` is defensive against a `throw null`,
-      // `throw undefined`, or `throw { message: '' }` from the lower
-      // layer; under the current lower-layer contract `e` is always an
-      // `Error` instance with a non-empty message, so the short-circuit
-      // fallback branches are unreachable today.
-      /* c8 ignore next */
-      const msg = String((e && e.message) || e);
-      if (msg.includes('signature must be')) {
+      const { code } = /** @type {Error & {code?: string}} */ (e);
+      if (code === 'ERR_SIGNATURE_LENGTH') {
         return { ok: false, reason: 'invalid-signature-length' };
       }
-      if (msg.includes('pk must be')) {
+      if (code === 'ERR_PK_LENGTH') {
         return { ok: false, reason: 'invalid-pk-length' };
       }
       /* c8 ignore next 2 */

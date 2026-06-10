@@ -1,7 +1,7 @@
 # wallet.js
 
 [![npm version](https://img.shields.io/npm/v/@theqrl/wallet.js.svg)](https://www.npmjs.com/package/@theqrl/wallet.js)
-![test](https://github.com/theQRL/wallet.js/actions/workflows/release.yml/badge.svg)
+![test](https://github.com/theQRL/wallet.js/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/theQRL/wallet.js/branch/main/graph/badge.svg?token=HHVBFBVGFR)](https://codecov.io/gh/theQRL/wallet.js)
 
 Quantum-resistant wallet library for The QRL using **ML-DSA-87** (FIPS 204).
@@ -244,6 +244,11 @@ This library currently supports **ML-DSA-87** (FIPS 204), the NIST standardized 
 
 - `@theqrl/mldsa87` - ML-DSA-87 implementation
 - `@noble/hashes` - SHA-256, SHAKE-256
+
+Note: the ESM build resolves these from `node_modules`; the CJS build
+embeds compiled copies (because `@noble/hashes` is ESM-only), so CJS
+consumers receive dependency security fixes via new `@theqrl/wallet.js`
+releases. See [SECURITY.md](SECURITY.md#bundled-dependencies-in-the-cjs-artifact).
 
 ## Requirements
 

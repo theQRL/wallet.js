@@ -18,8 +18,9 @@
     "prepublishOnly": "npm run build",
     "test": "mocha",
     "test:browser": "playwright test",
-    "lint-check": "eslint 'src/**/*.js' 'test/**/*.js'",
-    "lint": "eslint --fix 'src/**/*.js' 'test/**/*.js'",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "lint-check": "eslint .",
+    "lint": "eslint --fix .",
     "report-coverage": "c8 --reporter=text-lcov npm run test > coverage.lcov",
     "coverage": "c8 npm run test"
   },
@@ -53,7 +54,12 @@
     "all": true,
     "src": [
       "src"
-    ]
+    ],
+    "check-coverage": true,
+    "statements": 100,
+    "branches": 100,
+    "functions": 100,
+    "lines": 100
   },
   "files": [
     "dist",
@@ -81,6 +87,7 @@
     "playwright": "1.60.0",
     "prettier": "3.8.3",
     "rollup": "4.60.3",
+    "semantic-release": "25.0.5",
     "typescript": "6.0.3"
   },
   "overrides": {
@@ -93,12 +100,12 @@
     "tar": "7.5.11",
     "diff": "8.0.3",
     "picomatch": "4.0.4",
-    "brace-expansion": "5.0.5",
+    "brace-expansion": "5.0.6",
     "npm": {
-      ".": "11.11.1",
+      ".": "11.16.0",
       "minimatch": "10.2.4",
       "picomatch": "4.0.4",
-      "brace-expansion": "5.0.5"
+      "brace-expansion": "5.0.6"
     }
   }
 }

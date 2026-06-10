@@ -52,7 +52,9 @@ class Assertion {
   }
 
   get not() {
-    return new Assertion(this.actual, !this.negate, this.deep, this.message);
+    // Pass the _deep boolean, not the `deep` getter — the getter returns a
+    // (truthy) Assertion, which silently made every `.not.*` chain deep.
+    return new Assertion(this.actual, !this.negate, this._deep, this.message);
   }
 
   get deep() {
@@ -72,7 +74,7 @@ class Assertion {
     this._assert(
       condition,
       message || `expected ${String(this.actual)} to equal ${String(expected)}`,
-      message || `expected ${String(this.actual)} to not equal ${String(expected)}`,
+      message || `expected ${String(this.actual)} to not equal ${String(expected)}`
     );
     return this;
   }
@@ -82,7 +84,7 @@ class Assertion {
     this._assert(
       condition,
       message || `expected value to be instance of ${expected && expected.name ? expected.name : 'provided type'}`,
-      message || `expected value to not be instance of ${expected && expected.name ? expected.name : 'provided type'}`,
+      message || `expected value to not be instance of ${expected && expected.name ? expected.name : 'provided type'}`
     );
     return this;
   }
@@ -93,7 +95,7 @@ class Assertion {
   }
 
   an(expectedType, message) {
-    let condition = false;
+    let condition;
     if (expectedType === 'array') {
       condition = Array.isArray(this.actual);
     } else if (expectedType === 'error') {
@@ -104,7 +106,7 @@ class Assertion {
     this._assert(
       condition,
       message || `expected value to be an ${expectedType}`,
-      message || `expected value to not be an ${expectedType}`,
+      message || `expected value to not be an ${expectedType}`
     );
     return this;
   }
@@ -113,12 +115,32 @@ class Assertion {
     return this.an(expectedType, message);
   }
 
+  get have() {
+    return this;
+  }
+
+  property(name, message) {
+    const condition = this.actual != null && Object.prototype.hasOwnProperty.call(this.actual, name);
+    this._assert(
+      condition,
+      message || `expected value to have property '${name}'`,
+      message || `expected value to not have property '${name}'`
+    );
+    return this;
+  }
+
+  // chai-style property assertion: expect(x).to.be.undefined / .to.not.be.undefined
+  get undefined() {
+    this._assert(this.actual === undefined, 'expected value to be undefined', 'expected value to not be undefined');
+    return this;
+  }
+
   match(regex, message) {
     const condition = regex instanceof RegExp && typeof this.actual === 'string' && regex.test(this.actual);
     this._assert(
       condition,
       message || `expected ${String(this.actual)} to match ${String(regex)}`,
-      message || `expected ${String(this.actual)} to not match ${String(regex)}`,
+      message || `expected ${String(this.actual)} to not match ${String(regex)}`
     );
     return this;
   }
@@ -146,11 +168,7 @@ class Assertion {
       }
     }
 
-    this._assert(
-      condition,
-      message || 'expected function to throw',
-      message || 'expected function to not throw',
-    );
+    this._assert(condition, message || 'expected function to throw', message || 'expected function to not throw');
     return this;
   }
 }

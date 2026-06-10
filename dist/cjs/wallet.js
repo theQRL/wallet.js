@@ -2322,6 +2322,10 @@ function cryptoSignVerify(sig, m, pk, ctx) {
 const HEX_LEN = ADDRESS_SIZE * 2;
 const HEX_REGEX = /^[0-9a-fA-F]+$/;
 
+/**
+ * @param {Uint8Array} bytes
+ * @returns {string} lowercase hex, two characters per byte.
+ */
 function bytesToLowerHex(bytes) {
   let hex = '';
   for (let i = 0; i < bytes.length; i += 1) {
@@ -2838,17 +2842,19 @@ const sha256 = /* @__PURE__ */ createHasher(() => new _SHA256(),
 
 
 /**
+ * Type guard: true when `input` is a Uint8Array (including Buffer).
  * @param {unknown} input
- * @returns {boolean}
+ * @returns {input is Uint8Array}
  */
 function isUint8(input) {
   return input instanceof Uint8Array;
 }
 
 /**
+ * Type guard: true when `input` is a hex-like string.
  * Accepts strings with optional 0x/0X prefix and separators(space, :, _, -).
  * @param {unknown} input
- * @returns {boolean}
+ * @returns {input is string}
  */
 function isHexLike(input) {
   if (typeof input !== 'string') return false;
@@ -7391,6 +7397,12 @@ const WORD_LOOKUP = WordList.reduce((acc, word, i) => {
  * @returns {string}
  */
 function binToMnemonic(input) {
+  if (!(input instanceof Uint8Array)) {
+    // Without this check a string (or array) input whose length happens to
+    // be a multiple of 3 would silently encode to a garbage mnemonic —
+    // character indexing coerces to NaN, which maps every word to index 0.
+    throw new Error('input must be a Uint8Array');
+  }
   if (input.length % 3 !== 0) {
     throw new Error('byte count needs to be a multiple of 3');
   }
@@ -7456,6 +7468,8 @@ function mnemonicToBin(mnemonic) {
  */
 
 
+/** @typedef {import('../common/seed.js').Seed} Seed */
+
 /**
  * Generate a keypair.
  *
@@ -7483,10 +7497,29 @@ function keygen(seed) {
 /**
  * Check if input is a valid byte array (Uint8Array or Buffer).
  * @param {unknown} input
- * @returns {boolean}
+ * @returns {input is Uint8Array}
  */
 function isBytes(input) {
   return input instanceof Uint8Array;
+}
+
+/**
+ * Build a validation Error carrying a stable, machine-readable `code`.
+ * Callers (e.g. `Wallet.verifyWithReason`) classify failures by `code`;
+ * the human-readable message text is informational and may evolve.
+ *
+ * Codes: `ERR_SK_TYPE`, `ERR_SK_LENGTH`, `ERR_MESSAGE_TYPE`,
+ * `ERR_CTX_TYPE`, `ERR_RANDOMIZED_TYPE`, `ERR_SIGNATURE_TYPE`,
+ * `ERR_SIGNATURE_LENGTH`, `ERR_PK_TYPE`, `ERR_PK_LENGTH`.
+ *
+ * @param {string} code
+ * @param {string} message
+ * @returns {Error & {code: string}}
+ */
+function typedError(code, message) {
+  const err = /** @type {Error & {code: string}} */ (new Error(message));
+  err.code = code;
+  return err;
 }
 
 /**
@@ -7525,19 +7558,19 @@ function isBytes(input) {
  */
 function sign(sk, message, ctx, randomized = true) {
   if (!isBytes(sk)) {
-    throw new Error('sk must be Uint8Array or Buffer');
+    throw typedError('ERR_SK_TYPE', 'sk must be Uint8Array or Buffer');
   }
   if (sk.length !== CryptoSecretKeyBytes) {
-    throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
+    throw typedError('ERR_SK_LENGTH', `sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
   }
   if (!isBytes(message)) {
-    throw new Error('message must be Uint8Array or Buffer');
+    throw typedError('ERR_MESSAGE_TYPE', 'message must be Uint8Array or Buffer');
   }
   if (!isBytes(ctx)) {
-    throw new Error('ctx must be Uint8Array or Buffer');
+    throw typedError('ERR_CTX_TYPE', 'ctx must be Uint8Array or Buffer');
   }
   if (typeof randomized !== 'boolean') {
-    throw new Error('randomized must be a boolean');
+    throw typedError('ERR_RANDOMIZED_TYPE', 'randomized must be a boolean');
   }
 
   const sm = cryptoSign(message, sk, randomized, ctx);
@@ -7574,22 +7607,22 @@ function signDeterministic(sk, message, ctx) {
  */
 function verify(signature, message, pk, ctx) {
   if (!isBytes(signature)) {
-    throw new Error('signature must be Uint8Array or Buffer');
+    throw typedError('ERR_SIGNATURE_TYPE', 'signature must be Uint8Array or Buffer');
   }
   if (signature.length !== CryptoBytes) {
-    throw new Error(`signature must be ${CryptoBytes} bytes, got ${signature.length}`);
+    throw typedError('ERR_SIGNATURE_LENGTH', `signature must be ${CryptoBytes} bytes, got ${signature.length}`);
   }
   if (!isBytes(message)) {
-    throw new Error('message must be Uint8Array or Buffer');
+    throw typedError('ERR_MESSAGE_TYPE', 'message must be Uint8Array or Buffer');
   }
   if (!isBytes(pk)) {
-    throw new Error('pk must be Uint8Array or Buffer');
+    throw typedError('ERR_PK_TYPE', 'pk must be Uint8Array or Buffer');
   }
   if (pk.length !== CryptoPublicKeyBytes) {
-    throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
+    throw typedError('ERR_PK_LENGTH', `pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
   }
   if (!isBytes(ctx)) {
-    throw new Error('ctx must be Uint8Array or Buffer');
+    throw typedError('ERR_CTX_TYPE', 'ctx must be Uint8Array or Buffer');
   }
 
   const sigBytes = new Uint8Array(signature);
@@ -7617,8 +7650,34 @@ const SECRET_FIELDS = ['seed', 'sk', 'extendedSeed', '_zeroized'];
 class Wallet {
   /**
    * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
+   *
+   * Ownership contract: the constructor takes ownership of every object and
+   * buffer passed in. Callers constructing a Wallet directly must not
+   * retain, mutate, or zeroize `descriptor`, `seed`, `pk`, or `sk` after
+   * construction — `zeroize()` assumes the wallet is their sole owner.
+   * The static factories uphold this internally; `newWalletFromSeed`
+   * defensively copies the caller's Seed so external code never shares
+   * secret-bearing state with a Wallet.
    */
   constructor({ descriptor, seed, pk, sk }) {
+    if (!(descriptor instanceof Descriptor)) {
+      throw new Error('descriptor must be a Descriptor instance');
+    }
+    if (!(seed instanceof Seed)) {
+      throw new Error('seed must be a Seed instance');
+    }
+    if (!(pk instanceof Uint8Array)) {
+      throw new Error('pk must be a Uint8Array');
+    }
+    if (pk.length !== CryptoPublicKeyBytes) {
+      throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
+    }
+    if (!(sk instanceof Uint8Array)) {
+      throw new Error('sk must be a Uint8Array');
+    }
+    if (sk.length !== CryptoSecretKeyBytes) {
+      throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
+    }
     this.descriptor = descriptor;
     this.seed = seed;
     this.pk = pk;
@@ -7649,6 +7708,14 @@ class Wallet {
   }
 
   /**
+   * Create a wallet deterministically from an existing seed.
+   *
+   * The caller's `Seed` instance is **defensively copied**: the wallet and
+   * the caller's object have independent lifecycles. Zeroizing the input
+   * Seed afterwards does not affect the wallet, and `wallet.zeroize()`
+   * does not reach the caller's instance — the caller stays responsible
+   * for zeroizing their own copy.
+   *
    * @param {Seed} seed
    * @param {[number, number]} [metadata=[0,0]]
    * @returns {Wallet}
@@ -7656,7 +7723,14 @@ class Wallet {
   static newWalletFromSeed(seed, metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    // Copy the caller's Seed so no secret-bearing state is shared across
+    // the API boundary; zeroize the transient byte buffer once wrapped.
+    const seedBytes = seed.toBytes();
+    try {
+      return new Wallet({ descriptor, seed: new Seed(seedBytes), pk, sk });
+    } finally {
+      seedBytes.fill(0);
+    }
   }
 
   /**
@@ -7844,33 +7918,26 @@ class Wallet {
     if (!(pk instanceof Uint8Array)) {
       return { ok: false, reason: 'invalid-pk-type' };
     }
-    // Length checks delegate to the lower layer; we re-classify the
-    // lower layer's typed errors into our reason taxonomy here. The
-    // final `throw e` in the catch block below is a defensive safety
-    // net — the lower-layer `verify`'s complete error taxonomy
-    // ({sk,signature,message,pk,ctx} × {type,length}) is fully
-    // classified into the `if` branches above. If a future lower-layer
-    // change introduces an error message we haven't classified yet,
-    // we want the surprise to propagate rather than be silently
-    // collapsed into 'verification-failed'. The re-raise is therefore
-    // unreachable from any current public-API call site; covered by
-    // inspection rather than by a test that would have to monkey-patch
-    // the lower layer.
+    // Length checks delegate to the lower layer, whose validation errors
+    // carry stable machine-readable `code`s (see crypto.js `typedError`);
+    // we classify by code, never by message text. The final `throw e` in
+    // the catch block below is a defensive safety net — given the type
+    // pre-checks above, the only lower-layer failures reachable here are
+    // the two length codes. If a future lower-layer change introduces an
+    // unclassified error, we want the surprise to propagate rather than
+    // be silently collapsed into 'verification-failed'. The re-raise is
+    // therefore unreachable from any current public-API call site;
+    // covered by inspection rather than by a test that would have to
+    // monkey-patch the lower layer.
     try {
       const ok = verify(signature, message, pk, signingContext(descriptor));
       return ok ? { ok: true } : { ok: false, reason: 'verification-failed' };
     } catch (e) {
-      // `e && e.message || e` is defensive against a `throw null`,
-      // `throw undefined`, or `throw { message: '' }` from the lower
-      // layer; under the current lower-layer contract `e` is always an
-      // `Error` instance with a non-empty message, so the short-circuit
-      // fallback branches are unreachable today.
-      /* c8 ignore next */
-      const msg = String((e && e.message) || e);
-      if (msg.includes('signature must be')) {
+      const { code } = /** @type {Error & {code?: string}} */ (e);
+      if (code === 'ERR_SIGNATURE_LENGTH') {
         return { ok: false, reason: 'invalid-signature-length' };
       }
-      if (msg.includes('pk must be')) {
+      if (code === 'ERR_PK_LENGTH') {
         return { ok: false, reason: 'invalid-pk-length' };
       }
       /* c8 ignore next 2 */

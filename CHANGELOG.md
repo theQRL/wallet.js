@@ -1,3 +1,9 @@
+## [6.2.1](https://github.com/theQRL/wallet.js/compare/v6.2.0...v6.2.1) (2026-06-10)
+
+### Bug Fixes
+
+* codecov-action version bump ([9565c6a](https://github.com/theQRL/wallet.js/commit/9565c6ac42b22b09204929736db542bab430bd54))
+
 ## [6.2.0](https://github.com/theQRL/wallet.js/compare/v6.1.0...v6.2.0) (2026-06-10)
 
 ### Features

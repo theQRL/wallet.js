@@ -1,3 +1,14 @@
+## [6.2.0](https://github.com/theQRL/wallet.js/compare/v6.1.0...v6.2.0) (2026-06-10)
+
+### Features
+
+* stable error codes on crypto validation errors ([37bf1a3](https://github.com/theQRL/wallet.js/commit/37bf1a336ec8414ca370c25e19f24ce5fd4f3f45))
+
+### Bug Fixes
+
+* copy caller Seed in newWalletFromSeed; define lifecycle contract ([764f746](https://github.com/theQRL/wallet.js/commit/764f746302688b2dece336f926f0a3167b75e257))
+* validate Wallet constructor and binToMnemonic inputs ([65cbd6d](https://github.com/theQRL/wallet.js/commit/65cbd6d5e46966177f59a6958eff88a872f9ce4a))
+
 ## [6.1.0](https://github.com/theQRL/wallet.js/compare/v6.0.1...v6.1.0) (2026-05-22)
 
 ### Features

@@ -1,3 +1,10 @@
+## [6.2.2](https://github.com/theQRL/wallet.js/compare/v6.2.1...v6.2.2) (2026-06-12)
+
+### Bug Fixes
+
+* enforce canonical descriptors, total verify, and publish-before-release ([2b242cd](https://github.com/theQRL/wallet.js/commit/2b242cd21b0ba8a0a83e0163613da2612ea63e74))
+* version bump qrypto.js ([f232d95](https://github.com/theQRL/wallet.js/commit/f232d95fcb8a09d7fd728a2b5cc53bbb6396d8f6))
+
 ## [6.2.1](https://github.com/theQRL/wallet.js/compare/v6.2.0...v6.2.1) (2026-06-10)
 
 ### Bug Fixes

@@ -786,7 +786,6 @@ const zetas = [
 class KeccakState {
   constructor() {
     this.hasher = null;
-    this.finalized = false;
   }
 }
 
@@ -794,16 +793,10 @@ class KeccakState {
 
 function shake128Init(state) {
   state.hasher = shake128.create({});
-  state.finalized = false;
 }
 
 function shake128Absorb(state, input) {
   state.hasher.update(input);
-}
-
-function shake128Finalize(state) {
-  // Mark as finalized - actual finalization happens on first xofInto call
-  state.finalized = true;
 }
 
 function shake128SqueezeBlocks(out, outputOffset, nBlocks, state) {
@@ -816,16 +809,10 @@ function shake128SqueezeBlocks(out, outputOffset, nBlocks, state) {
 
 function shake256Init(state) {
   state.hasher = shake256.create({});
-  state.finalized = false;
 }
 
 function shake256Absorb(state, input) {
   state.hasher.update(input);
-}
-
-function shake256Finalize(state) {
-  // Mark as finalized - actual finalization happens on first xofInto call
-  state.finalized = true;
 }
 
 function shake256SqueezeBlocks(out, outputOffset, nBlocks, state) {
@@ -845,7 +832,6 @@ function mldsaShake128StreamInit(state, seed, nonce) {
   shake128Init(state);
   shake128Absorb(state, seed);
   shake128Absorb(state, t);
-  shake128Finalize(state);
 }
 
 function mldsaShake256StreamInit(state, seed, nonce) {
@@ -859,7 +845,6 @@ function mldsaShake256StreamInit(state, seed, nonce) {
   shake256Init(state);
   shake256Absorb(state, seed);
   shake256Absorb(state, t);
-  shake256Finalize(state);
 }
 
 function montgomeryReduce(a) {
@@ -1158,6 +1143,8 @@ function polyUniformGamma1(a, seed, nonce) {
 }
 
 function polyChallenge(cP, seed) {
+  // Invariant tripwire: internal callers always pass a CTILDEBytes-long
+  // challenge hash; anything else indicates a regression in sign/verify.
   if (seed.length !== CTILDEBytes) throw new Error('invalid ctilde length');
 
   let b;
@@ -1168,7 +1155,6 @@ function polyChallenge(cP, seed) {
   const state = new KeccakState();
   shake256Init(state);
   shake256Absorb(state, seed);
-  shake256Finalize(state);
   shake256SqueezeBlocks(buf, 0, 1, state);
 
   let signs = 0n;
@@ -1475,6 +1461,9 @@ function polyVecLChkNorm(v, bound) {
 
 function polyVecKUniformEta(v, seed, nonceP) {
   let nonce = nonceP;
+  if (seed.length !== CRHBytes) {
+    throw new Error(`invalid seed length ${seed.length} | Expected length ${CRHBytes}`);
+  }
   for (let i = 0; i < K; ++i) {
     polyUniformEta(v.vec[i], seed, nonce++);
   }
@@ -1681,6 +1670,10 @@ function packSig(sigP, ctilde, z, h) {
     sig[sigOffset + i] = 0;
   }
 
+  // Invariant tripwires: h produced by polyVecKMakeHint is always binary
+  // with at most OMEGA set coefficients (the sign loop re-samples
+  // otherwise). A violation here means an internal regression upstream —
+  // fail loudly rather than emit a malformed signature.
   let k = 0;
   for (let i = 0; i < K; ++i) {
     for (let j = 0; j < N; ++j) {
@@ -1769,6 +1762,9 @@ function randomBytes$1(size) {
       cryptoObj.getRandomValues(out.subarray(i, Math.min(size, i + MAX_BYTES$1)));
     }
     {
+      // Invariant tripwire: a healthy CSPRNG never returns 16 leading zero
+      // bytes (p = 2^-128). All-zero output means the platform RNG is
+      // catastrophically broken — refuse to hand it to key generation.
       let acc = 0;
       for (let i = 0; i < 16; i++) acc |= out[i];
       if (acc === 0) throw new Error('getRandomValues returned all zeros');
@@ -1818,6 +1814,22 @@ function zeroize(buffer) {
 }
 
 /**
+ * Attempts to zero the coefficient arrays of a polynomial vector
+ * (PolyVecL/PolyVecK). Centralizes the secret-wiping pattern used by the
+ * signing paths so every sensitive PolyVec is cleared the same way.
+ *
+ * Same BEST-EFFORT caveats as zeroize() — see SECURITY.md.
+ *
+ * @param {{vec: {coeffs: Int32Array}[]}} polyVec - The polynomial vector to zero
+ * @returns {void}
+ */
+function zeroizePolyVec(polyVec) {
+  for (let i = 0; i < polyVec.vec.length; i++) {
+    polyVec.vec[i].coeffs.fill(0);
+  }
+}
+
+/**
  * Convert hex string to Uint8Array with strict validation.
  *
  * Accepts an optional 0x/0X prefix. Leading/trailing whitespace is rejected.
@@ -1829,6 +1841,8 @@ function zeroize(buffer) {
  * @private
  */
 function hexToBytes(hex) {
+  // Unreachable via the public API: messageToBytes routes only strings here.
+  // Kept as defense-in-depth for any future direct internal caller.
   /* c8 ignore start */
   if (typeof hex !== 'string') {
     throw new Error('message must be a hex string');
@@ -1881,13 +1895,18 @@ function messageToBytes(message) {
  *   Pass null or undefined for random key generation.
  * @param {Uint8Array} pk - Output buffer for public key (must be CryptoPublicKeyBytes = 2592 bytes)
  * @param {Uint8Array} sk - Output buffer for secret key (must be CryptoSecretKeyBytes = 4896 bytes)
- * @returns {Uint8Array} The seed used for key generation (useful when passedSeed is null)
+ * @returns {Uint8Array} The seed used for key generation (useful when passedSeed is null).
+ *   **The returned seed is secret-key-equivalent**: anyone holding it can
+ *   regenerate the full keypair. Store it with the same care as `sk` and
+ *   `zeroize()` it as soon as it is no longer needed.
  * @throws {Error} If pk/sk buffers are null or wrong size, or if seed is wrong size
  *
  * @example
  * const pk = new Uint8Array(CryptoPublicKeyBytes);
  * const sk = new Uint8Array(CryptoSecretKeyBytes);
  * const seed = cryptoSignKeypair(null, pk, sk);
+ * // ... persist or use seed (it can regenerate sk!) ...
+ * zeroize(seed);
  */
 function cryptoSignKeypair(passedSeed, pk, sk) {
   try {
@@ -1962,10 +1981,10 @@ function cryptoSignKeypair(passedSeed, pk, sk) {
     zeroize(seedBuf);
     zeroize(rhoPrime);
     zeroize(key);
-    for (let i = 0; i < L; i++) s1.vec[i].coeffs.fill(0);
-    for (let i = 0; i < K; i++) s2.vec[i].coeffs.fill(0);
-    if (s1hat) for (let i = 0; i < L; i++) s1hat.vec[i].coeffs.fill(0);
-    for (let i = 0; i < K; i++) t0.vec[i].coeffs.fill(0);
+    zeroizePolyVec(s1);
+    zeroizePolyVec(s2);
+    if (s1hat) zeroizePolyVec(s1hat);
+    zeroizePolyVec(t0);
   }
 }
 
@@ -2094,7 +2113,7 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
       const ctilde = shake256
         .create({})
         .update(mu)
-        .update(sig.slice(0, K * PolyW1PackedBytes))
+        .update(sig.subarray(0, K * PolyW1PackedBytes))
         .xof(CTILDEBytes);
 
       polyChallenge(cp, ctilde);
@@ -2120,6 +2139,9 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
       polyVecKPointWisePolyMontgomery(h, cp, t0);
       polyVecKInvNTTToMont(h);
       polyVecKReduce(h);
+      // Statistically rare rejection (depends on key/challenge interaction);
+      // no deterministic trigger is known, so it is exercised by long fuzz
+      // campaigns rather than unit vectors.
       /* c8 ignore start */
       if (polyVecKChkNorm(h, GAMMA2) !== 0) {
         continue;
@@ -2128,6 +2150,7 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
 
       polyVecKAdd(w0, w0, h);
       const n = polyVecKMakeHint(h, w0, w1);
+      // Statistically rare rejection — same rationale as the ct0 check above.
       /* c8 ignore start */
       if (n > OMEGA) {
         continue;
@@ -2140,10 +2163,10 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
   } finally {
     zeroize(key);
     zeroize(rhoPrime);
-    for (let i = 0; i < L; i++) s1.vec[i].coeffs.fill(0);
-    for (let i = 0; i < K; i++) s2.vec[i].coeffs.fill(0);
-    for (let i = 0; i < K; i++) t0.vec[i].coeffs.fill(0);
-    for (let i = 0; i < L; i++) y.vec[i].coeffs.fill(0);
+    zeroizePolyVec(s1);
+    zeroizePolyVec(s2);
+    zeroizePolyVec(t0);
+    zeroizePolyVec(y);
   }
 }
 
@@ -2172,13 +2195,14 @@ function cryptoSign(msg, sk, randomizedSigning, ctx) {
   }
   const msgBytes = messageToBytes(msg);
 
+  // Place the message after the signature area. (The C reference uses a
+  // backwards copy because its sm/m buffers may alias; here they never do.)
   const sm = new Uint8Array(CryptoBytes + msgBytes.length);
-  const mLen = msgBytes.length;
-  for (let i = 0; i < mLen; ++i) {
-    sm[CryptoBytes + mLen - 1 - i] = msgBytes[mLen - 1 - i];
-  }
+  sm.set(msgBytes, CryptoBytes);
   const result = cryptoSignSignature(sm, msgBytes, sk, randomizedSigning, ctx);
 
+  // Unreachable: cryptoSignSignature returns 0 or throws — defensive
+  // tripwire in case a future change introduces a non-zero failure return.
   /* c8 ignore start */
   if (result !== 0) {
     throw new Error('failed to sign');
@@ -2874,6 +2898,12 @@ function cleanHex(hex) {
 /**
  * Convert various inputs to a fixed-length byte array.
  * Supports hex string(with/without 0x), Uint8Array, Buffer, number[].
+ *
+ * The `number[]` path requires every element to be an integer in
+ * [0, 255]; out-of-range or non-integer elements throw instead of being
+ * silently coerced modulo 256 by `Uint8Array.from` (e.g. 256→0, -1→255,
+ * 1.5→1 would all corrupt key/descriptor material undetected).
+ *
  * @param {string|Uint8Array|Buffer|number[]} input
  * @param {number} expectedLen
  * @param {string} [label='bytes']
@@ -2886,6 +2916,12 @@ function toFixedU8(input, expectedLen, label = 'bytes') {
   } else if (isHexLike(input)) {
     bytes = hexToBytes$1(cleanHex(input));
   } else if (Array.isArray(input)) {
+    for (let i = 0; i < input.length; i += 1) {
+      const v = input[i];
+      if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 255) {
+        throw new Error(`${label}: array element at index ${i} must be an integer in [0, 255], got ${String(v)}`);
+      }
+    }
     bytes = Uint8Array.from(input);
   } else {
     throw new Error(`${label}: unsupported input type; pass hex string or Uint8Array/Buffer`);
@@ -2921,7 +2957,13 @@ function isValidWalletType(t) {
 /**
  * 3-byte descriptor for a wallet:
  *  - byte 0: wallet type (e.g. ML_DSA_87)
- *  - bytes 1..2: 2 bytes metadata
+ *  - bytes 1..2: 2 bytes metadata — **reserved, must be zero**
+ *
+ * Non-zero metadata is rejected everywhere a descriptor enters the API,
+ * matching go-qrllib's `Descriptor.IsValid` (bytes 1–2 must be 0).
+ * Without this, one keypair could enroll under many sibling addresses,
+ * and a non-zero-metadata wallet would be invalid to go-qrllib/rust-qrllib
+ * nodes — i.e. potentially unspendable.
  * @module wallet/common/descriptor
  */
 
@@ -2929,7 +2971,8 @@ function isValidWalletType(t) {
 class Descriptor {
   /**
    * @param {Uint8Array|number[]} bytes Must be exactly 3 bytes.
-   * @throws {Error} If size is not 3 or wallet type is invalid.
+   * @throws {Error} If size is not 3, wallet type is invalid, or the
+   *   reserved metadata bytes (1–2) are non-zero.
    */
   constructor(bytes) {
     if (!bytes || bytes.length !== DESCRIPTOR_SIZE) {
@@ -2939,6 +2982,9 @@ class Descriptor {
     this.bytes = Uint8Array.from(bytes);
     if (!isValidWalletType(this.bytes[0])) {
       throw new Error('Invalid wallet type in descriptor');
+    }
+    if (this.bytes[1] !== 0 || this.bytes[2] !== 0) {
+      throw new Error('Descriptor metadata bytes are reserved and must be zero');
     }
   }
 
@@ -2970,8 +3016,10 @@ class Descriptor {
 /**
  * Build descriptor bytes from parts.
  * @param {number} walletType byte.
- * @param {[number, number]} [metadata=[0,0]] Two metadata bytes.
+ * @param {[number, number]} [metadata=[0,0]] Two metadata bytes — reserved,
+ *   must both be zero (the parameter is kept for API compatibility).
  * @returns {Uint8Array} 3 bytes.
+ * @throws {Error} If the wallet type is invalid or metadata is non-zero.
  */
 function getDescriptorBytes(walletType, metadata = [0, 0]) {
   if (!isValidWalletType(walletType)) {
@@ -2979,13 +3027,13 @@ function getDescriptorBytes(walletType, metadata = [0, 0]) {
   }
   const m0 = metadata?.[0] ?? 0;
   const m1 = metadata?.[1] ?? 0;
-  if (!Number.isInteger(m0) || m0 < 0 || m0 > 255 || !Number.isInteger(m1) || m1 < 0 || m1 > 255) {
-    throw new Error('Descriptor metadata bytes must be in range [0, 255]');
+  if (m0 !== 0 || m1 !== 0) {
+    throw new Error('Descriptor metadata bytes are reserved and must be zero');
   }
   const out = new Uint8Array(DESCRIPTOR_SIZE);
   out[0] = walletType >>> 0;
-  out[1] = m0;
-  out[2] = m1;
+  out[1] = 0;
+  out[2] = 0;
   return out;
 }
 
@@ -3058,7 +3106,9 @@ class ExtendedSeed {
   /**
    * Layout: [3 bytes descriptor] || [48 bytes seed].
    * @param {Uint8Array} bytes Exactly 51 bytes.
-   * @throws {Error} If size mismatch or invalid wallet type.
+   * @throws {Error} If size mismatch, invalid wallet type, or non-zero
+   *   reserved descriptor metadata bytes (1–2) — matching go-qrllib
+   *   descriptor validation.
    */
   constructor(bytes) {
     if (!bytes || bytes.length !== EXTENDED_SEED_SIZE) {
@@ -3068,6 +3118,9 @@ class ExtendedSeed {
     this.bytes = Uint8Array.from(bytes);
     if (!isValidWalletType(this.bytes[0])) {
       throw new Error('Invalid wallet type in descriptor');
+    }
+    if (this.bytes[1] !== 0 || this.bytes[2] !== 0) {
+      throw new Error('Descriptor metadata bytes are reserved and must be zero');
     }
     // Hide raw extended-seed bytes from Object.keys / JSON.stringify /
     // spread / default util.inspect.
@@ -7866,6 +7919,13 @@ class Wallet {
   /**
    * Verify a signature. The descriptor is required so verification uses
    * the same domain-separated context that signing did.
+   *
+   * **Total over malformed inputs**: wrong-typed or wrong-length
+   * signature/message/pk and a non-Descriptor descriptor all return
+   * `false` — this boundary never throws. Use
+   * {@link Wallet.verifyWithReason} when you need to distinguish *why*
+   * verification failed.
+   *
    * @param {Uint8Array} signature
    * @param {Uint8Array} message
    * @param {Uint8Array} pk
@@ -7873,7 +7933,7 @@ class Wallet {
    * @returns {boolean}
    */
   static verify(signature, message, pk, descriptor) {
-    return verify(signature, message, pk, signingContext(descriptor));
+    return Wallet.verifyWithReason(signature, message, pk, descriptor).ok;
   }
 
   /**

@@ -35,6 +35,14 @@ The c8 gate requires 100% on every metric. New branches need tests for
 both sides. Use `/* c8 ignore */` only with a comment explaining why the
 path is unreachable (see existing examples in `src/`).
 
+The flat-100% baseline exists for **drift visibility** — any drop points
+directly at the new untested branch, which is why unreachable paths are
+excluded with rationale instead of letting the number sit below the
+ceiling. This repo is past the 100% milestone and the gate is locked in:
+**lowering it is a maintainer decision**, made as an explicit, reviewed
+change to the c8/Codecov thresholds with its reasoning in the PR — never
+a status check everyone learns to ignore.
+
 ### The browser suite uses hand-rolled shims
 
 `browser-tests/` runs shared suites from `test/unit/` in a real browser
@@ -65,6 +73,38 @@ Consequences for test authors:
 | `verify-with-reason` | Discriminated verification failures + error-code contract |
 | `public-api` | Locks the export surface of `src/index.js` |
 | `dist-bundle`, `types-build`, `types-consumer` | Built-artifact and declaration regression tests |
+
+## Pinned verification inputs
+
+Anything CI resolves and then *executes or trusts* is a pin, not just the
+`git clone` SHAs — a pin matrix is only as strong as its most creative
+resolver. The full list, with bump semantics:
+
+| Pin | Where | Bump semantics |
+|---|---|---|
+| go-qrllib `6f99783…` (= v0.9.0) | `cross-verify.yml` env `GO_QRLLIB_PIN` | Routine: update SHA + dated comment, run the workflow via `workflow_dispatch` on the branch, merge. Never bump past a failure silently. |
+| Go module context of the cross-verify harness | structural | The harness Go programs run from *inside* the pinned go-qrllib clone, so `go run` resolves through the clone's own `go.mod`/`go.sum` at the pinned commit. There is deliberately **no `go.mod` under `.github/cross-verify/`** — a harness-local module file would resolve go-qrllib from the registry and silently shadow the clone pin. Adding one is a reviewed change to this table. |
+| `npm@11.16.0` | `release.yml` "Use npm 11" step; `package.json` `overrides` + lockfile | Exact-pinned in the publish-privileged job (a `^range` would resolve at run time). Bump the workflow and the override together. |
+| actionlint `1.7.10` | `actionlint.yml` `version:` input | The engine inside the SHA-pinned action (defaults to `latest` otherwise). Keep in step with the brew-installed version used locally. |
+| zizmor engine | `zizmor-action` SHA pin | The action digest-pins its own engine — pinned transitively; bumping the action SHA bumps the engine. |
+| `codecov-action` `fb8b358… # v7.0.0` | `coverage.yml` | House pin, aligned across the QRL JS repos — bump in step. |
+| GitHub SSH host keys | `release.yml` known_hosts | Published keys from `api.github.com/meta` (not run-time `ssh-keyscan`). Refresh when GitHub rotates. |
+| `slsa-github-generator@v2.1.0` | `release.yml` | Tag-pinned **by requirement** (provenance verification needs the tag); documented zizmor exception in `.github/zizmor.yml`. |
+| Playwright Chromium build | lockfile | `npx playwright install` fetches the browser build mapped to the locked `@playwright/test` version — governed by `package-lock.json`. |
+| Everything `uses:` | all workflows | Actions are SHA-pinned with a `# vX.Y.Z` comment. |
+| npm dependency tree | `package-lock.json` | All installs are `npm ci`; the release job never runs a bare `npm install`. |
+
+## CI shape
+
+`ci.yml` is the push/PR battery; `release.yml`'s preflight job re-runs the
+release-blocking subset (lint, tests, build, dist-clean) inline before the
+publish path starts. The playbook's preferred single-package shape — one
+reusable `workflow_call` CI consumed by push/PR and the release pipeline —
+is noted and **deferred** (optional, no forced migration); adopt it the
+next time the two job lists are caught drifting apart. Per-module Codecov
+`components` are adopted in `.codecov.yml` for drift visibility; the
+gates remain the project/patch 100% targets plus the c8 `check-coverage`
+run in CI.
 
 ## Commit messages
 

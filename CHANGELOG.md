@@ -1,3 +1,9 @@
+## [6.2.3](https://github.com/theQRL/wallet.js/compare/v6.2.2...v6.2.3) (2026-06-13)
+
+### Bug Fixes
+
+* bump @theqrl/mldsa87 to 2.1.3 ([a68e598](https://github.com/theQRL/wallet.js/commit/a68e598263e594cc32c4886ef8074c857c4d6442))
+
 ## [6.2.2](https://github.com/theQRL/wallet.js/compare/v6.2.1...v6.2.2) (2026-06-12)
 
 ### Bug Fixes

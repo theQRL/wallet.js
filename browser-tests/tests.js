@@ -1,5 +1,6 @@
 import './setup.js';
 import '../test/unit/address.mocha.js';
+import '../test/unit/buffer-aliasing.mocha.js';
 import '../test/unit/context.mocha.js';
 import '../test/unit/cross-implementation.mocha.js';
 import '../test/unit/descriptor.mocha.js';

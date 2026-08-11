@@ -1,3 +1,10 @@
+## [6.2.4](https://github.com/theQRL/wallet.js/compare/v6.2.3...v6.2.4) (2026-08-11)
+
+### Bug Fixes
+
+* prevent Uint8Array subclasses from aliasing wallet key state ([3994e03](https://github.com/theQRL/wallet.js/commit/3994e0334c54403534e399592da7c37df9fd5e9a))
+* zeroize transient keygen secret key in ML-DSA-87 wallet factories ([9a436d0](https://github.com/theQRL/wallet.js/commit/9a436d0659f5132d5b0cbd03fdd903190fcf0124))
+
 ## [6.2.3](https://github.com/theQRL/wallet.js/compare/v6.2.2...v6.2.3) (2026-06-13)
 
 ### Bug Fixes

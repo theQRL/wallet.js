@@ -7765,12 +7765,15 @@ class Wallet {
   static newWallet(metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const seedBytes = randomBytes(48);
+    let sk;
     try {
       const seed = new Seed(seedBytes);
-      const { pk, sk } = keygen(seed);
-      return new Wallet({ descriptor, seed, pk, sk });
+      const keypair = keygen(seed);
+      sk = keypair.sk;
+      return new Wallet({ descriptor, seed, pk: keypair.pk, sk });
     } finally {
       seedBytes.fill(0);
+      if (sk) sk.fill(0);
     }
   }
 
@@ -7789,14 +7792,18 @@ class Wallet {
    */
   static newWalletFromSeed(seed, metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
-    const { pk, sk } = keygen(seed);
-    // Copy the caller's Seed so no secret-bearing state is shared across
-    // the API boundary; zeroize the transient byte buffer once wrapped.
-    const seedBytes = seed.toBytes();
+    let sk;
+    let seedBytes;
     try {
-      return new Wallet({ descriptor, seed: new Seed(seedBytes), pk, sk });
+      const keypair = keygen(seed);
+      sk = keypair.sk;
+      // Copy the caller's Seed so no secret-bearing state is shared across
+      // the API boundary; zeroize the transient byte buffer once wrapped.
+      seedBytes = seed.toBytes();
+      return new Wallet({ descriptor, seed: new Seed(seedBytes), pk: keypair.pk, sk });
     } finally {
-      seedBytes.fill(0);
+      if (seedBytes) seedBytes.fill(0);
+      if (sk) sk.fill(0);
     }
   }
 
@@ -7807,8 +7814,14 @@ class Wallet {
   static newWalletFromExtendedSeed(extendedSeed) {
     const descriptor = extendedSeed.getDescriptor();
     const seed = extendedSeed.getSeed();
-    const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    let sk;
+    try {
+      const keypair = keygen(seed);
+      sk = keypair.sk;
+      return new Wallet({ descriptor, seed, pk: keypair.pk, sk });
+    } finally {
+      if (sk) sk.fill(0);
+    }
   }
 
   /**

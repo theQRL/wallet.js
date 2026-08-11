@@ -5110,13 +5110,24 @@ class Wallet {
   /**
    * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
    *
-   * Ownership contract: the constructor takes ownership of every object and
-   * buffer passed in. Callers constructing a Wallet directly must not
-   * retain, mutate, or zeroize `descriptor`, `seed`, `pk`, or `sk` after
-   * construction — `zeroize()` assumes the wallet is their sole owner.
-   * The static factories uphold this internally; `newWalletFromSeed`
-   * defensively copies the caller's Seed so external code never shares
-   * secret-bearing state with a Wallet.
+   * Ownership contract:
+   *
+   * - `descriptor` and `seed` are taken **by ownership**. Callers must not
+   *   retain, mutate, or zeroize them after construction — `zeroize()`
+   *   assumes the wallet is their sole owner. The static factories uphold
+   *   this internally; `newWalletFromSeed` defensively copies the caller's
+   *   Seed so external code never shares secret-bearing state with a Wallet.
+   * - `pk` and `sk` are **defensively copied** into plain `Uint8Array`
+   *   instances. Any `Uint8Array` subclass is accepted (notably Node's
+   *   `Buffer`), but no subclass is ever retained: `Buffer.prototype.slice`
+   *   returns a *shared view* rather than a copy, so storing a caller's
+   *   Buffer would make `getPK()`/`getSK()` alias live key state — letting
+   *   a holder of a supposedly-public pk copy rewrite the wallet's identity,
+   *   and turning the documented `sk.fill(0)` hygiene step into destruction
+   *   of the wallet's own secret key.
+   *   Because the wallet holds its own copy, `zeroize()` cannot reach the
+   *   caller's `pk`/`sk` buffers; callers stay responsible for zeroizing
+   *   those themselves (the same division of duty as `newWalletFromSeed`).
    */
   constructor({ descriptor, seed, pk, sk }) {
     if (!(descriptor instanceof Descriptor)) {
@@ -5139,8 +5150,11 @@ class Wallet {
     }
     this.descriptor = descriptor;
     this.seed = seed;
-    this.pk = pk;
-    this.sk = sk;
+    // Normalize to plain Uint8Array — never retain a caller's subclass
+    // instance. See the ownership contract above for why Buffer inputs
+    // would otherwise alias internal key state through the getters.
+    this.pk = Uint8Array.from(pk);
+    this.sk = Uint8Array.from(sk);
     this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
     /** @private */
     this._zeroized = false;
@@ -5157,12 +5171,15 @@ class Wallet {
   static newWallet(metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
     const seedBytes = randomBytes(48);
+    let sk;
     try {
       const seed = new Seed(seedBytes);
-      const { pk, sk } = keygen(seed);
-      return new Wallet({ descriptor, seed, pk, sk });
+      const keypair = keygen(seed);
+      sk = keypair.sk;
+      return new Wallet({ descriptor, seed, pk: keypair.pk, sk });
     } finally {
       seedBytes.fill(0);
+      if (sk) sk.fill(0);
     }
   }
 
@@ -5181,14 +5198,18 @@ class Wallet {
    */
   static newWalletFromSeed(seed, metadata = [0, 0]) {
     const descriptor = newMLDSA87Descriptor(metadata);
-    const { pk, sk } = keygen(seed);
-    // Copy the caller's Seed so no secret-bearing state is shared across
-    // the API boundary; zeroize the transient byte buffer once wrapped.
-    const seedBytes = seed.toBytes();
+    let sk;
+    let seedBytes;
     try {
-      return new Wallet({ descriptor, seed: new Seed(seedBytes), pk, sk });
+      const keypair = keygen(seed);
+      sk = keypair.sk;
+      // Copy the caller's Seed so no secret-bearing state is shared across
+      // the API boundary; zeroize the transient byte buffer once wrapped.
+      seedBytes = seed.toBytes();
+      return new Wallet({ descriptor, seed: new Seed(seedBytes), pk: keypair.pk, sk });
     } finally {
-      seedBytes.fill(0);
+      if (seedBytes) seedBytes.fill(0);
+      if (sk) sk.fill(0);
     }
   }
 
@@ -5199,8 +5220,14 @@ class Wallet {
   static newWalletFromExtendedSeed(extendedSeed) {
     const descriptor = extendedSeed.getDescriptor();
     const seed = extendedSeed.getSeed();
-    const { pk, sk } = keygen(seed);
-    return new Wallet({ descriptor, seed, pk, sk });
+    let sk;
+    try {
+      const keypair = keygen(seed);
+      sk = keypair.sk;
+      return new Wallet({ descriptor, seed, pk: keypair.pk, sk });
+    } finally {
+      if (sk) sk.fill(0);
+    }
   }
 
   /**
@@ -5270,13 +5297,25 @@ class Wallet {
     return binToMnemonic(this.getExtendedSeed().toBytes());
   }
 
-  /** @returns {Uint8Array} */
+  /**
+   * Returns an independent copy of the public key.
+   *
+   * Always a plain `Uint8Array`, never a `Uint8Array` subclass, regardless
+   * of what the wallet was constructed with. Mutating the result can never
+   * reach the wallet's internal key or the address derived from it.
+   *
+   * @returns {Uint8Array}
+   */
   getPK() {
-    return this.pk.slice();
+    return Uint8Array.from(this.pk);
   }
 
   /**
    * Returns a copy of the secret key.
+   *
+   * Always a plain `Uint8Array`, never a `Uint8Array` subclass, so the
+   * returned buffer is genuinely independent of the wallet's internal state.
+   *
    * @returns {Uint8Array}
    * @warning Caller is responsible for zeroing the returned buffer when done
    * (e.g. `sk.fill(0)`). The Wallet's `zeroize()` method cannot reach copies
@@ -5284,7 +5323,7 @@ class Wallet {
    */
   getSK() {
     this._requireLive();
-    return this.sk.slice();
+    return Uint8Array.from(this.sk);
   }
 
   /**

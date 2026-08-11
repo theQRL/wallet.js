@@ -84,13 +84,24 @@ export class Wallet {
     /**
      * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
      *
-     * Ownership contract: the constructor takes ownership of every object and
-     * buffer passed in. Callers constructing a Wallet directly must not
-     * retain, mutate, or zeroize `descriptor`, `seed`, `pk`, or `sk` after
-     * construction — `zeroize()` assumes the wallet is their sole owner.
-     * The static factories uphold this internally; `newWalletFromSeed`
-     * defensively copies the caller's Seed so external code never shares
-     * secret-bearing state with a Wallet.
+     * Ownership contract:
+     *
+     * - `descriptor` and `seed` are taken **by ownership**. Callers must not
+     *   retain, mutate, or zeroize them after construction — `zeroize()`
+     *   assumes the wallet is their sole owner. The static factories uphold
+     *   this internally; `newWalletFromSeed` defensively copies the caller's
+     *   Seed so external code never shares secret-bearing state with a Wallet.
+     * - `pk` and `sk` are **defensively copied** into plain `Uint8Array`
+     *   instances. Any `Uint8Array` subclass is accepted (notably Node's
+     *   `Buffer`), but no subclass is ever retained: `Buffer.prototype.slice`
+     *   returns a *shared view* rather than a copy, so storing a caller's
+     *   Buffer would make `getPK()`/`getSK()` alias live key state — letting
+     *   a holder of a supposedly-public pk copy rewrite the wallet's identity,
+     *   and turning the documented `sk.fill(0)` hygiene step into destruction
+     *   of the wallet's own secret key.
+     *   Because the wallet holds its own copy, `zeroize()` cannot reach the
+     *   caller's `pk`/`sk` buffers; callers stay responsible for zeroizing
+     *   those themselves (the same division of duty as `newWalletFromSeed`).
      */
     constructor({ descriptor, seed, pk, sk }: {
         descriptor: Descriptor;
@@ -100,8 +111,8 @@ export class Wallet {
     });
     descriptor: Descriptor;
     seed: Seed;
-    pk: Uint8Array<ArrayBufferLike>;
-    sk: Uint8Array<ArrayBufferLike>;
+    pk: Uint8Array<ArrayBuffer>;
+    sk: Uint8Array<ArrayBuffer>;
     extendedSeed: ExtendedSeed;
     /** @private */
     private _zeroized;
@@ -128,10 +139,22 @@ export class Wallet {
     getHexExtendedSeed(): string;
     /** @returns {string} */
     getMnemonic(): string;
-    /** @returns {Uint8Array} */
+    /**
+     * Returns an independent copy of the public key.
+     *
+     * Always a plain `Uint8Array`, never a `Uint8Array` subclass, regardless
+     * of what the wallet was constructed with. Mutating the result can never
+     * reach the wallet's internal key or the address derived from it.
+     *
+     * @returns {Uint8Array}
+     */
     getPK(): Uint8Array;
     /**
      * Returns a copy of the secret key.
+     *
+     * Always a plain `Uint8Array`, never a `Uint8Array` subclass, so the
+     * returned buffer is genuinely independent of the wallet's internal state.
+     *
      * @returns {Uint8Array}
      * @warning Caller is responsible for zeroing the returned buffer when done
      * (e.g. `sk.fill(0)`). The Wallet's `zeroize()` method cannot reach copies

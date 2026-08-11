@@ -204,10 +204,53 @@ This is by design for FIPS 204 compliance and go-qrllib cross-implementation com
   operate on public data and keep working — e.g. so an application can
   still display which wallet was closed. `zeroize()` destroys secrets,
   not public identity.
-- **Constructing `Wallet` directly transfers ownership.** The constructor
-  takes ownership of every object and buffer passed to it; do not retain,
+- **Constructing `Wallet` directly transfers ownership of `descriptor` and
+  `seed`.** The constructor takes ownership of those objects; do not retain,
   mutate, or zeroize them afterwards. Prefer the static factories, which
   manage ownership for you.
+- **`pk` and `sk` are defensively copied by the constructor.** They are
+  normalized into plain `Uint8Array` instances, so the wallet never shares a
+  key buffer with its caller. The corollary matches `newWalletFromSeed`'s
+  `Seed` policy: `wallet.zeroize()` cannot reach the `pk`/`sk` buffers you
+  passed in, so zeroize those yourself (`sk.fill(0)`).
+- **Key getters always return plain `Uint8Array` copies.** `getPK()` and
+  `getSK()` never return a `Uint8Array` subclass, whatever the wallet was
+  constructed with. See [Byte-array inputs and `Buffer`](#byte-array-inputs-and-buffer).
+
+### Byte-array inputs and `Buffer`
+
+Every API that accepts bytes accepts any `Uint8Array` — including Node's
+`Buffer`, which is a `Uint8Array` subclass. **No subclass instance is ever
+retained**: `Seed`, `ExtendedSeed`, `Descriptor`, `toFixedU8`, and the
+`Wallet` constructor all normalize their input to a plain `Uint8Array`.
+
+This matters because `Uint8Array` subclasses can change the meaning of
+built-in methods. `Buffer.prototype.slice()` is the important case: it
+returns a **shared view**, not a copy, unlike `Uint8Array.prototype.slice()`.
+
+```javascript
+Buffer.from([1]).slice()[0] = 2;      // mutates the original — shared view
+new Uint8Array([1]).slice()[0] = 2;   // does not — independent copy
+```
+
+Had a wallet stored a caller's `Buffer` directly, `getPK()`/`getSK()` would
+have handed out writable views of live key state. Two consequences follow,
+and both are prevented by normalizing:
+
+- The public key is classified above as *"Safe to share"*, so applications
+  reasonably pass a `getPK()` result to lower-trust code (formatters,
+  plugins, protocol adapters) without granting signing authority. If that
+  result aliased internal state, the recipient could write its own public key
+  into it; because `getAddress()` re-derives from the stored `pk` on every
+  call, the wallet would then report an **attacker-controlled address**.
+- `getSK()` documents that callers should wipe the returned buffer with
+  `fill(0)`. If that buffer aliased internal state, the documented hygiene
+  step would destroy the wallet's own secret key, and `zeroize()` would reach
+  back into a "copy" it promises it cannot touch.
+
+If you write a type that stores caller-supplied bytes, normalize on the way
+in (`Uint8Array.from(bytes)` / `new Uint8Array(bytes)`) rather than relying
+on `.slice()` to copy on the way out.
 
 ### Accidental Leakage Hardening
 

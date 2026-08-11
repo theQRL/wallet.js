@@ -295,4 +295,71 @@ describe('ML-DSA-87 Wallet', () => {
       });
     });
   });
+
+  describe('factory methods zeroize keygen-created local sk', () => {
+    it('zeroizes keygen sk after copying in newWallet', () => {
+      let capturedSk;
+      const origFrom = Uint8Array.from;
+      Uint8Array.from = function (arr) {
+        if (arr && arr.length === CryptoSecretKeyBytes) {
+          capturedSk = arr;
+        }
+        return origFrom.call(this, arr);
+      };
+      try {
+        const w = MLDSA87.newWallet();
+        expect(capturedSk).to.be.instanceOf(Uint8Array);
+        expect(capturedSk.every((b) => b === 0)).to.equal(true);
+        expect(w.getSK().every((b) => b === 0)).to.equal(false);
+        w.zeroize();
+      } finally {
+        Uint8Array.from = origFrom;
+      }
+    });
+
+    it('zeroizes keygen sk after copying in newWalletFromSeed', () => {
+      const tc = walletTestCases[0];
+      const ext = ExtendedSeed.from(tc.extendedSeed);
+      const seed = ext.getSeed();
+      let capturedSk;
+      const origFrom = Uint8Array.from;
+      Uint8Array.from = function (arr) {
+        if (arr && arr.length === CryptoSecretKeyBytes) {
+          capturedSk = arr;
+        }
+        return origFrom.call(this, arr);
+      };
+      try {
+        const w = MLDSA87.newWalletFromSeed(seed);
+        expect(capturedSk).to.be.instanceOf(Uint8Array);
+        expect(capturedSk.every((b) => b === 0)).to.equal(true);
+        expect(w.getSK().every((b) => b === 0)).to.equal(false);
+        w.zeroize();
+      } finally {
+        Uint8Array.from = origFrom;
+      }
+    });
+
+    it('zeroizes keygen sk after copying in newWalletFromExtendedSeed', () => {
+      const tc = walletTestCases[0];
+      const ext = ExtendedSeed.from(tc.extendedSeed);
+      let capturedSk;
+      const origFrom = Uint8Array.from;
+      Uint8Array.from = function (arr) {
+        if (arr && arr.length === CryptoSecretKeyBytes) {
+          capturedSk = arr;
+        }
+        return origFrom.call(this, arr);
+      };
+      try {
+        const w = MLDSA87.newWalletFromExtendedSeed(ext);
+        expect(capturedSk).to.be.instanceOf(Uint8Array);
+        expect(capturedSk.every((b) => b === 0)).to.equal(true);
+        expect(w.getSK().every((b) => b === 0)).to.equal(false);
+        w.zeroize();
+      } finally {
+        Uint8Array.from = origFrom;
+      }
+    });
+  });
 });

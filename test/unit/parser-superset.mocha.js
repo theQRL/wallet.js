@@ -1,14 +1,14 @@
 // Input-parsing superset locks (cross-implementation parity, X-3).
 //
-// wallet.js's address and mnemonic parsers deliberately accept a small,
-// documented superset of what go-qrllib accepts — input normalization
+// wallet.js's address, mnemonic and hex-seed parsers deliberately accept a
+// small, documented superset of what go-qrllib accepts — input normalization
 // only (lowercase `q` prefix, surrounding whitespace, mnemonic casing and
-// flexible inter-word whitespace). The CANONICAL output forms emitted by
-// this library (`Q` + lowercase hex / EIP-55 checksummed; lowercase
-// single-space mnemonics) match go-qrllib byte-for-byte, so anything this
-// library produces is accepted everywhere. The leniencies below apply to
-// what we *accept*, never to what we *emit*. See SECURITY.md
-// "Input-parsing supersets vs go-qrllib".
+// flexible inter-word whitespace, hex grouping separators). The CANONICAL
+// output forms emitted by this library (`Q` + lowercase hex / EIP-55
+// checksummed; lowercase single-space mnemonics; `0x` + lowercase hex seeds)
+// match go-qrllib byte-for-byte, so anything this library produces is accepted
+// everywhere. The leniencies below apply to what we *accept*, never to what we
+// *emit*. See SECURITY.md "Input-parsing supersets vs go-qrllib".
 //
 // These tests lock the superset deliberately: if a leniency is ever
 // removed (alignment with go-qrllib) or widened, this file must change in
@@ -18,6 +18,8 @@ import { expect } from 'chai';
 import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
 import { stringToAddress, isValidAddress, addressToString } from '../../src/wallet/common/address.js';
 import { mnemonicToBin, binToMnemonic } from '../../src/wallet/misc/mnemonic.js';
+import { ExtendedSeed } from '../../src/wallet/common/seed.js';
+import { newWalletFromExtendedSeed } from '../../src/wallet/factory.js';
 import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
 
 const tc = walletTestCases[0];
@@ -94,6 +96,55 @@ describe('parser superset locks (input normalization vs go-qrllib)', () => {
       const emitted = binToMnemonic(mnemonicToBin(canonical));
       expect(emitted).to.equal(emitted.toLowerCase());
       expect(emitted).to.not.match(/\s{2,}|^\s|\s$/);
+    });
+  });
+
+  describe('hex extended-seed parsing', () => {
+    // The fixture stores the unprefixed body; `0x` + it is what we emit.
+    const body = tc.extendedSeed;
+    const canonical = `0x${body}`;
+    const bytes = () => ExtendedSeed.from(canonical).toBytes();
+
+    it('canonical form round-trips: what we emit, we accept and re-emit identically', () => {
+      const w = newWalletFromExtendedSeed(canonical);
+      expect(w.getHexExtendedSeed()).to.equal(canonical);
+      expect(ExtendedSeed.from(w.getHexExtendedSeed()).toBytes()).to.deep.equal(bytes());
+      w.zeroize();
+    });
+
+    it('accepts the unprefixed body, 0X, and uppercase hex (accepted superset)', () => {
+      expect(ExtendedSeed.from(body).toBytes()).to.deep.equal(bytes());
+      expect(ExtendedSeed.from(`0X${body}`).toBytes()).to.deep.equal(bytes());
+      expect(ExtendedSeed.from(`0x${body.toUpperCase()}`).toBytes()).to.deep.equal(bytes());
+    });
+
+    it('accepts surrounding whitespace, prefixed or not (accepted superset)', () => {
+      expect(ExtendedSeed.from(`  ${canonical}\n`).toBytes()).to.deep.equal(bytes());
+      expect(ExtendedSeed.from(`\t${body} `).toBytes()).to.deep.equal(bytes());
+    });
+
+    it('accepts grouping separators between hex characters (accepted superset)', () => {
+      const grouped = body.match(/.{1,8}/g).join(':');
+      expect(ExtendedSeed.from(`0x${grouped}`).toBytes()).to.deep.equal(bytes());
+      expect(ExtendedSeed.from(`0x${body.match(/.{1,8}/g).join(' ')}`).toBytes()).to.deep.equal(bytes());
+    });
+
+    it('does NOT accept a body of the wrong length', () => {
+      expect(() => ExtendedSeed.from(`0x${body.slice(0, -2)}`)).to.throw();
+      expect(() => ExtendedSeed.from(`0x${body}ab`)).to.throw();
+    });
+
+    it('does NOT accept non-hex, non-separator characters', () => {
+      expect(() => ExtendedSeed.from(`0x${body.slice(0, -1)}z`)).to.throw();
+    });
+
+    it('emitted form is canonical: lowercase 0x prefix + lowercase hex', () => {
+      const w = newWalletFromExtendedSeed(`  0x${body.toUpperCase()}  `);
+      const emitted = w.getHexExtendedSeed();
+      expect(emitted).to.equal(emitted.toLowerCase());
+      expect(emitted.startsWith('0x')).to.equal(true);
+      expect(emitted).to.equal(canonical);
+      w.zeroize();
     });
   });
 });

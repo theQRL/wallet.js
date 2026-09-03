@@ -45,6 +45,23 @@ describe('utils/bytes', () => {
       const hex = '0X-de:ad_be-ef 00 !!';
       expect(cleanHex(hex)).to.equal('deadbeef00');
     });
+
+    // The trim must precede the prefix strip. `/^0x/` is anchored, so on
+    // untrimmed input it does not match, the separator pass removes only the
+    // `x`, and a stray leading `0` shifts every following nibble.
+    it('trims before stripping the prefix, so surrounding whitespace is safe', () => {
+      expect(cleanHex('  0xdeadbeef\n')).to.equal('deadbeef');
+      expect(cleanHex('\t0Xdeadbeef ')).to.equal('deadbeef');
+      expect(cleanHex(' deadbeef ')).to.equal('deadbeef');
+    });
+
+    // Everything cleanHex removes is a separator, so cleaning can never
+    // change the decoded byte sequence.
+    it('agrees with isHexLike on what it accepts', () => {
+      const padded = '  0x de:ad_be-ef  ';
+      expect(isHexLike(padded)).to.equal(true);
+      expect(cleanHex(padded)).to.equal('deadbeef');
+    });
   });
 
   describe('toFixedU8', () => {

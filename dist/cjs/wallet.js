@@ -2887,12 +2887,27 @@ function isHexLike(input) {
 }
 
 /**
- * Remove 0x prefix and all non-hex chars.
+ * Remove surrounding whitespace, an optional 0x/0X prefix, and any grouping
+ * separators, leaving hex characters only.
+ *
+ * The trim must happen before the prefix strip, and mirrors {@link isHexLike}:
+ * `/^0x/` is anchored to the start of the string, so on untrimmed input like
+ * `'  0x0100...'` it does not fire, the separator pass then deletes only the
+ * `x`, and a stray leading `0` is left at the head of the hex body — shifting
+ * every following nibble. Accepting a value in `isHexLike` and mangling it in
+ * `cleanHex` is the failure this ordering prevents.
+ *
+ * Only separators are removed. Nothing that carries a nibble value is dropped,
+ * so cleaning cannot change the decoded byte sequence.
+ *
  * @param {string} hex
  * @returns {string}
  */
 function cleanHex(hex) {
-  return hex.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
+  return hex
+    .trim()
+    .replace(/^0x/i, '')
+    .replace(/[^0-9a-fA-F]/g, '');
 }
 
 /**

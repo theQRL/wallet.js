@@ -373,8 +373,8 @@ Bumping `SIGNING_CONTEXT_VERSION` is a hard break of the signature wire format a
 
 ## Input-Parsing Supersets vs go-qrllib
 
-The address and mnemonic **parsers** accept a small, deliberate superset of
-go-qrllib's accepted inputs — normalization only:
+The address, mnemonic and hex-seed **parsers** accept a small, deliberate
+superset of go-qrllib's accepted inputs — normalization only:
 
 - `stringToAddress` / `isValidAddress`: lowercase `q` prefix and
   surrounding whitespace are accepted (trimmed); all-lowercase and
@@ -382,10 +382,19 @@ go-qrllib's accepted inputs — normalization only:
   EIP-55-style checksum exactly.
 - Mnemonics: case-insensitive words, flexible inter-word whitespace, and
   surrounding whitespace are accepted and normalized.
+- Hex seeds (`Seed.from`, `ExtendedSeed.from`, `newWalletFromExtendedSeed`,
+  and anything else built on `toFixedU8`): an optional `0x`/`0X` prefix,
+  uppercase hex, surrounding whitespace, and grouping separators between hex
+  characters (whitespace, `:`, `_`, `-`) are accepted. Everything removed is a
+  separator, so cleaning cannot change the decoded byte sequence; a character
+  that carries a nibble value is never dropped. The decoded length is then
+  checked exactly.
 
 The **emitted** canonical forms — `Q` + lowercase hex (or checksummed)
-addresses, lowercase single-space mnemonics — match go-qrllib
-byte-for-byte, so everything this library produces is valid everywhere.
+addresses, lowercase single-space mnemonics, `0x` + lowercase hex extended
+seeds — match go-qrllib byte-for-byte, so everything this library produces is
+valid everywhere. In particular, `getHexExtendedSeed()` output parses back
+through every hex entry point in this library and through go-qrllib's.
 The leniencies apply to what is accepted, never to what is emitted. This
 is intentional UX tolerance for hand-entered input; it is locked by
 `test/unit/parser-superset.mocha.js`, and any change to the accepted set

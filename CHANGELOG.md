@@ -1,3 +1,9 @@
+## [6.2.5](https://github.com/theQRL/wallet.js/compare/v6.2.4...v6.2.5) (2026-09-03)
+
+### Bug Fixes
+
+* trim whitespace before removing 0x prefix ([7dd8541](https://github.com/theQRL/wallet.js/commit/7dd8541c520805e4513312228ef5f928dd6c010d))
+
 ## [6.2.4](https://github.com/theQRL/wallet.js/compare/v6.2.3...v6.2.4) (2026-08-11)
 
 ### Bug Fixes

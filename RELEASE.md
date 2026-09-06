@@ -9,8 +9,12 @@ The system uses **Conventional Commits** format to trigger different version cha
 - `fix:` triggers patch versions (1.0.0 → 1.0.1)
 - `feat:` triggers minor versions (1.0.0 → 1.1.0)
 - `BREAKING CHANGE:` or `!` triggers major versions (1.0.0 → 2.0.0)
+- `chore(deps):` triggers patch versions — dependency bumps release by policy,
+  see "Dependency bumps are releasable by policy" below
 
 Other prefixes (`chore:`, `docs:`, `test:`, `refactor:`) do not trigger releases.
+A run that finds no releasable commit still **succeeds** — see "Recovering a
+missed release trigger".
 
 ## Commit Message Format
 
@@ -100,3 +104,55 @@ verify `git status` is clean (committed `dist/` must match), then
 `npm publish --access public`. A manual publish lacks the workflow's
 provenance attestation — note that in the GitHub release. Verify with
 `npm view @theqrl/wallet.js@X.Y.Z version`.
+
+## Recovering a missed release trigger
+
+State: a releasable change is merged to `main`, but no release was cut.
+The Release workflow run **succeeds** in this case — semantic-release
+analyses the commit window, finds nothing matching a rule in
+`.releaserc.json`, and exits without publishing. A green run is therefore
+not evidence that a release happened; confirm with `npm view
+@theqrl/wallet.js version` or the tag list.
+
+Historical example: `chore(deps): update @noble/hashes to 2.4.0 and
+@theqrl/mldsa87 to 2.1.5` (0cde957, PR #118) shipped a crypto dependency
+bump under a type that triggers nothing. 6.2.5 stayed current until the
+release was recovered.
+
+Re-running the workflow via `workflow_dispatch` does **not** help: the
+same commits are re-analysed against the same rules, with the same
+result. Rewording the commit does not help either once it is on `main` —
+the branch is protected and public.
+
+Recovery — **add a commit, never rewrite one**. semantic-release analyses
+every commit since the last release tag, so one releasable commit
+anywhere in that window releases everything already merged into it:
+
+```bash
+git commit --allow-empty -m "fix: <what the missed change actually did>"
+```
+
+An empty commit is legitimate here; it carries no diff because the change
+is already on `main`. Its subject becomes the changelog entry, so write it
+to describe the missed change, not the mistake.
+
+Alternatively, if the missed commit's type *should* have been releasable
+as a matter of policy, add the rule to `.releaserc.json` instead. Rules
+apply retroactively — the next run re-analyses the open window under the
+new configuration and picks the missed commit up, with no empty commit
+needed. `chore(deps)` is wired this way (see below).
+
+### Dependency bumps are releasable by policy
+
+`chore(deps)` is a patch-release trigger, and is surfaced under a
+`Dependencies` changelog heading rather than hidden with other chores.
+This is deliberate: per SECURITY.md "Bundled Dependencies in the CJS
+Artifact", the CJS build embeds compiled copies of `@theqrl/mldsa87` and
+`@noble/hashes`, so CJS consumers receive upstream dependency fixes
+**only** through a new wallet.js release, never transitively. A dependency
+bump that merges without releasing silently withholds that fix.
+
+Note that `presetConfig.types` replaces the preset's default type list
+outright rather than merging into it, so the full list is enumerated in
+`.releaserc.json`. The scoped `chore(deps)` entry must stay ahead of the
+generic hidden `chore` entry — the first matching entry wins.

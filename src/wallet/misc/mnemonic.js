@@ -65,7 +65,7 @@ function mnemonicToBin(mnemonic) {
 
     buffering += 3;
     current = (current << 12) + value;
-    for (; buffering > 2; ) {
+    for (; buffering > 2;) {
       const shift = 4 * (buffering - 2);
       const mask = (1 << shift) - 1;
       const tmp = current >> shift;

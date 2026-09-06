@@ -9,8 +9,10 @@ The system uses **Conventional Commits** format to trigger different version cha
 - `fix:` triggers patch versions (1.0.0 → 1.0.1)
 - `feat:` triggers minor versions (1.0.0 → 1.1.0)
 - `BREAKING CHANGE:` or `!` triggers major versions (1.0.0 → 2.0.0)
+- `chore(deps):` triggers patch versions (see "chore(deps) releases")
 
 Other prefixes (`chore:`, `docs:`, `test:`, `refactor:`) do not trigger releases.
+A run that finds nothing releasable still succeeds — see "Missed release trigger".
 
 ## Commit Message Format
 
@@ -100,3 +102,35 @@ verify `git status` is clean (committed `dist/` must match), then
 `npm publish --access public`. A manual publish lacks the workflow's
 provenance attestation — note that in the GitHub release. Verify with
 `npm view @theqrl/wallet.js@X.Y.Z version`.
+
+## Missed release trigger
+
+Symptom: a releasable change is on `main`, nothing was published, and the
+workflow run is **green** — semantic-release matched no commit against
+`.releaserc.json` and exited. Confirm releases with `npm view
+@theqrl/wallet.js version`, not the run status. Precedent: 0cde957
+(PR #118), a crypto dependency bump typed `chore(deps)`.
+
+`workflow_dispatch` re-analyses the same commits against the same rules;
+rewording is out once the commit is on protected `main`. Fix by adding a
+commit. Analysis covers everything since the last tag, so one releasable
+commit releases the whole window:
+
+```bash
+git commit --allow-empty -m "fix: <what the missed change did>"
+```
+
+The subject becomes the changelog entry — describe the change, not the
+mistake. If the type should have been releasable by policy, add the rule
+to `.releaserc.json` instead; rules apply retroactively.
+
+### chore(deps) releases
+
+Dependency bumps trigger a patch and appear under `Dependencies`. The CJS
+artifact embeds compiled copies of `@theqrl/mldsa87` and `@noble/hashes`
+(SECURITY.md, "Bundled Dependencies in the CJS Artifact"), so those
+consumers get upstream fixes only through a wallet.js release.
+
+`presetConfig.types` replaces the preset's default list rather than
+merging, so all types are enumerated. Scoped `chore(deps)` must precede
+generic `chore` — first match wins.

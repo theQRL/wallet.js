@@ -1,3 +1,14 @@
+## [6.2.6](https://github.com/theQRL/wallet.js/compare/v6.2.5...v6.2.6) (2026-09-06)
+
+### Bug Fixes
+
+* version bump qrypto.js to 2.1.5 and @noble/hashes to 2.4.0 ([6d6136f](https://github.com/theQRL/wallet.js/commit/6d6136f30785347d5c22aab559b88c926d5c1806))
+* version bump qrypto.js to 2.1.5 and @noble/hashes to 2.4.0 ([965b768](https://github.com/theQRL/wallet.js/commit/965b768a08a86b538ac7835eb43609d16afbd48e)), closes [#118](https://github.com/theQRL/wallet.js/issues/118)
+
+### Dependencies
+
+* **deps:** update @noble/hashes to 2.4.0 and @theqrl/mldsa87 to 2.1.5 ([0cde957](https://github.com/theQRL/wallet.js/commit/0cde9578a3dbbae010b83bc7857b656e132c0b1c))
+
 ## [6.2.5](https://github.com/theQRL/wallet.js/compare/v6.2.4...v6.2.5) (2026-09-03)
 
 ### Bug Fixes

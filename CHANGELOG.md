@@ -1,3 +1,9 @@
+## [6.2.7](https://github.com/theQRL/wallet.js/compare/v6.2.6...v6.2.7) (2026-09-06)
+
+### Dependencies
+
+* **deps:** bump dev dependencies and pin GitHub Actions to latest ([dcf3c62](https://github.com/theQRL/wallet.js/commit/dcf3c628136dcd932df04cea16ea98a4541ba178))
+
 ## [6.2.6](https://github.com/theQRL/wallet.js/compare/v6.2.5...v6.2.6) (2026-09-06)
 
 ### Bug Fixes

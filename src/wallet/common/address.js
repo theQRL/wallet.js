@@ -240,17 +240,21 @@ function getAddressFromPKAndDescriptor(pk, descriptor) {
   if (pk.length !== expectedPKLen) {
     throw new Error(`pk must be ${expectedPKLen} bytes for wallet type ${walletType}`);
   }
+  // Snapshot so the weak-key check and the hash see the same bytes; a
+  // caller's buffer can change between the two (a SharedArrayBuffer view
+  // written by another thread).
+  const pkBytes = Uint8Array.from(pk);
   // Type and length were checked above, so the only verdict reachable here
   // is 'weak-public-key'.
-  const pkCheck = validatePublicKey(pk);
+  const pkCheck = validatePublicKey(pkBytes);
   if (pkCheck.ok === false) {
     throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
   }
 
   const descBytes = descriptor.toBytes();
-  const input = new Uint8Array(descBytes.length + pk.length);
+  const input = new Uint8Array(descBytes.length + pkBytes.length);
   input.set(descBytes, 0);
-  input.set(pk, descBytes.length);
+  input.set(pkBytes, descBytes.length);
   return shake256.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
 }
 

@@ -11,6 +11,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { CryptoBytes, CryptoPublicKeyBytes } from '@theqrl/mldsa87';
 
 const exec = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +61,20 @@ describe('dist bundle smoke tests', () => {
       `);
       expect(stdout.trim()).to.equal('true');
     });
+
+    it("rejects the all-zero public key with reason 'weak-public-key'", async () => {
+      // The check depends on validatePublicKey from @theqrl/mldsa87, which
+      // the ESM bundle resolves from node_modules at run time.
+      const { stdout } = await run(`
+        import { MLDSA87, newMLDSA87Descriptor } from './dist/mjs/wallet.js';
+        const pk = new Uint8Array(${CryptoPublicKeyBytes});
+        const sig = new Uint8Array(${CryptoBytes});
+        const msg = new TextEncoder().encode('test');
+        const r = MLDSA87.verifyWithReason(sig, msg, pk, newMLDSA87Descriptor());
+        console.log(r.ok, r.reason, MLDSA87.verify(sig, msg, pk, newMLDSA87Descriptor()));
+      `);
+      expect(stdout.trim()).to.equal('false weak-public-key false');
+    });
   });
 
   describe('CJS (dist/cjs/wallet.js)', () => {
@@ -103,6 +118,24 @@ describe('dist bundle smoke tests', () => {
         { cjs: true }
       );
       expect(stdout.trim()).to.equal('true');
+    });
+
+    it("rejects the all-zero public key with reason 'weak-public-key'", async () => {
+      // The CJS bundle embeds its own copy of @theqrl/mldsa87, so this proves
+      // the bundled copy carries validatePublicKey (see SECURITY.md "Bundled
+      // Dependencies in the CJS Artifact").
+      const { stdout } = await run(
+        `
+        const { MLDSA87, newMLDSA87Descriptor } = require('./dist/cjs/wallet.js');
+        const pk = new Uint8Array(${CryptoPublicKeyBytes});
+        const sig = new Uint8Array(${CryptoBytes});
+        const msg = new TextEncoder().encode('test');
+        const r = MLDSA87.verifyWithReason(sig, msg, pk, newMLDSA87Descriptor());
+        console.log(r.ok, r.reason, MLDSA87.verify(sig, msg, pk, newMLDSA87Descriptor()));
+      `,
+        { cjs: true }
+      );
+      expect(stdout.trim()).to.equal('false weak-public-key false');
     });
   });
 });

@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 import { shake256 } from '@noble/hashes/sha3.js';
-import { CryptoPublicKeyBytes } from '@theqrl/mldsa87';
+import { CryptoPublicKeyBytes, SeedBytes } from '@theqrl/mldsa87';
 import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
 import {
   addressToString,
@@ -49,6 +49,25 @@ describe('wallet/common/address', () => {
     const pk = hexToBytes(tc.wantPK);
     const addr = getAddressFromPKAndDescriptor(pk, new Descriptor(descBytes));
     expect(bytesToHex(addr)).to.equal(addrHex);
+  });
+
+  it('getAddressFromPKAndDescriptor rejects a weak pk (all-zero t1): go-qrllib BytesToPK parity', () => {
+    // go-qrllib's GetAddressFromPKAndDescriptor parses the key through
+    // BytesToPK, which applies ValidatePublicKey, so an address is never
+    // derived for a weak key there either.
+    const desc = new Descriptor(new Uint8Array([WalletType.ML_DSA_87, 0, 0]));
+    const allZero = new Uint8Array(CryptoPublicKeyBytes);
+    expect(() => getAddressFromPKAndDescriptor(allZero, desc)).to.throw(
+      'pk is a weak ML-DSA-87 public key (weak-public-key)'
+    );
+    const rhoOnly = new Uint8Array(CryptoPublicKeyBytes).fill(0xab, 0, SeedBytes);
+    expect(() => getAddressFromPKAndDescriptor(rhoOnly, desc)).to.throw(
+      'pk is a weak ML-DSA-87 public key (weak-public-key)'
+    );
+    // rho plays no part in the rule: the fixture key with rho zeroed is a
+    // different, still well-formed key, and derivation proceeds.
+    const rhoZeroed = hexToBytes(tc.wantPK).fill(0, 0, SeedBytes);
+    expect(getAddressFromPKAndDescriptor(rhoZeroed, desc).length).to.equal(ADDRESS_SIZE);
   });
 
   it('getAddressFromPKAndDescriptor rejects non-Uint8 public keys', () => {

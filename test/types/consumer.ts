@@ -29,6 +29,7 @@ import {
   newWalletFromExtendedSeed,
   MLDSA87,
 } from '@theqrl/wallet.js';
+import type { VerifyFailureReason } from '@theqrl/wallet.js';
 
 // Numeric size constants are typed `number`.
 const _seedSize: number = SEED_SIZE;
@@ -72,6 +73,16 @@ wallet.zeroize();
 // --- Static verify ---
 const verified: boolean = MLDSA87.verify(sig, message, pk, descriptor);
 
+// --- Static verifyWithReason (discriminated union) ---
+const reasoned = MLDSA87.verifyWithReason(sig, message, pk, descriptor);
+let failureReason: VerifyFailureReason | undefined;
+if (!reasoned.ok) {
+  failureReason = reasoned.reason;
+}
+// The wallet-layer rejection of a weak public key is a member of the
+// exported reason union.
+const weak: VerifyFailureReason = 'weak-public-key';
+
 // --- Descriptor / ExtendedSeed surface ---
 
 const newDesc: Descriptor = newMLDSA87Descriptor();
@@ -103,6 +114,7 @@ const strict: boolean = isValidChecksumAddress(checksummedFromBytes);
 const _used = [
   walletWithMeta, walletFromSeed, walletFromSeedWithMeta, walletFromMnemonic,
   walletFromExt, addrBytes, addrStr, mnemonic, sk, hexExt, detSig, verified,
+  reasoned, failureReason, weak,
   newDescWithMeta, descBytes, descType, extBytes, seedBytes, ctx, derived,
   lowerStr, checksummedFromBytes, checksummedFromStr, parsed, permissive,
   strict, _wt, _seedSize, _extSeedSize, _descSize, _addrSize, _ctxSize,

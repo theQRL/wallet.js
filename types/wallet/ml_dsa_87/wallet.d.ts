@@ -1,3 +1,21 @@
+/**
+ * Failure reasons returned by {@link Wallet.verifyWithReason}. See that
+ * method's JSDoc for the meaning of each value.
+ */
+export type VerifyFailureReason = "invalid-descriptor" | "invalid-signature-type" | "invalid-signature-length" | "invalid-message-type" | "invalid-pk-type" | "invalid-pk-length" | "weak-public-key" | "verification-failed";
+/**
+ * Failure reasons returned by {@link Wallet.verifyWithReason}. See that
+ * method's JSDoc for the meaning of each value.
+ *
+ * @typedef {'invalid-descriptor'
+ *   | 'invalid-signature-type'
+ *   | 'invalid-signature-length'
+ *   | 'invalid-message-type'
+ *   | 'invalid-pk-type'
+ *   | 'invalid-pk-length'
+ *   | 'weak-public-key'
+ *   | 'verification-failed'} VerifyFailureReason
+ */
 export class Wallet {
     /**
      * Create a new random wallet (non-deterministic).
@@ -35,7 +53,9 @@ export class Wallet {
      *
      * **Total over malformed inputs**: wrong-typed or wrong-length
      * signature/message/pk and a non-Descriptor descriptor all return
-     * `false` — this boundary never throws. Use
+     * `false` — this boundary never throws. A weak public key
+     * (see {@link Wallet.verifyWithReason}) also returns
+     * `false`, whatever the signature. Use
      * {@link Wallet.verifyWithReason} when you need to distinguish *why*
      * verification failed.
      *
@@ -60,6 +80,10 @@ export class Wallet {
      *  - `'invalid-message-type'` — `message` is not a `Uint8Array`
      *  - `'invalid-pk-type'` — `pk` is not a `Uint8Array`
      *  - `'invalid-pk-length'` — `pk` is the wrong byte length
+     *  - `'weak-public-key'` — `pk` is well-formed but has too few large t1
+     *    coefficients, so the verifier would accept a signature anyone can
+     *    compute from the key alone; rejected before the primitive runs
+     *    (see below)
      *  - `'verification-failed'` — well-formed inputs, signature does not verify
      *
      * The boolean {@link Wallet.verify} collapses all of these into `false`
@@ -69,17 +93,26 @@ export class Wallet {
      * the signature is forged). Do not branch program logic on the reason
      * in security-sensitive paths.
      *
+     * The weak-key check is not part of FIPS 204. A key is weak unless at
+     * least 76 of its 2048 t1 coefficients lie in [96, 415] or [608, 927];
+     * under a weak key the verifier accepts a signature anyone can compute
+     * from the key alone, and the standard requires it to (Wycheproof tcId
+     * 66, 174 and 240), so `@theqrl/mldsa87` accepts it and this method
+     * rejects it first. go-qrllib, rust-qrllib and qrypto.js apply the same
+     * rule and share its test vectors. Key generation never produces a weak
+     * key. SECURITY.md "Public Key Validation" has the derivation.
+     *
      * @param {Uint8Array} signature
      * @param {Uint8Array} message
      * @param {Uint8Array} pk
      * @param {Descriptor} descriptor
-     * @returns {{ok: true} | {ok: false, reason: string}}
+     * @returns {{ok: true} | {ok: false, reason: VerifyFailureReason}}
      */
     static verifyWithReason(signature: Uint8Array, message: Uint8Array, pk: Uint8Array, descriptor: Descriptor): {
         ok: true;
     } | {
         ok: false;
-        reason: string;
+        reason: VerifyFailureReason;
     };
     /**
      * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts

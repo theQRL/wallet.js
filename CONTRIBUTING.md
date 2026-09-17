@@ -70,7 +70,7 @@ Consequences for test authors:
 | `cross-implementation` | go-qrllib-matched fixtures (KATs) |
 | `seed-ownership` | Wallet/caller lifecycle isolation |
 | `secret-enumeration` | Secrets stay out of JSON/inspect/enumeration |
-| `verify-with-reason` | Discriminated verification failures + error-code contract |
+| `verify-with-reason` | Discriminated verification failures + error-code contract + the shared weak-key vectors (`test/fixtures/weak_public_key_vectors.json`, byte-identical to qrypto.js's; primitive accepts the zero-hint signature, wallet rejects the key) |
 | `public-api` | Locks the export surface of `src/index.js` |
 | `dist-bundle`, `types-build`, `types-consumer` | Built-artifact and declaration regression tests |
 

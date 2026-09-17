@@ -29,7 +29,7 @@
 
 /** @typedef {import('./descriptor.js').Descriptor} Descriptor */
 import { shake256 } from '@noble/hashes/sha3.js';
-import { CryptoPublicKeyBytes } from '@theqrl/mldsa87';
+import { CryptoPublicKeyBytes, validatePublicKey } from '@theqrl/mldsa87';
 import { ADDRESS_SIZE } from './constants.js';
 
 const HEX_LEN = ADDRESS_SIZE * 2;
@@ -216,10 +216,17 @@ function isValidChecksumAddress(addrStr) {
 
 /**
  * Derive an address from a public key and descriptor.
+ *
+ * A weak ML-DSA-87 public key (too few large t1 coefficients) is rejected
+ * here too, as go-qrllib's `GetAddressFromPKAndDescriptor` does via
+ * `BytesToPK`. No key made by this library is affected; see SECURITY.md
+ * "Public Key Validation".
+ *
  * @param {Uint8Array} pk - Public key for the wallet type encoded in the descriptor.
  * @param {Descriptor} descriptor
  * @returns {Uint8Array} {@link ADDRESS_SIZE}-byte address.
- * @throws {Error} If pk is not a Uint8Array of the expected length.
+ * @throws {Error} If pk is not a Uint8Array of the expected length, or is
+ *   a weak key.
  */
 function getAddressFromPKAndDescriptor(pk, descriptor) {
   if (!(pk instanceof Uint8Array)) throw new Error('pk must be Uint8Array');
@@ -232,6 +239,12 @@ function getAddressFromPKAndDescriptor(pk, descriptor) {
   }
   if (pk.length !== expectedPKLen) {
     throw new Error(`pk must be ${expectedPKLen} bytes for wallet type ${walletType}`);
+  }
+  // Type and length were checked above, so the only verdict reachable here
+  // is 'weak-public-key'.
+  const pkCheck = validatePublicKey(pk);
+  if (pkCheck.ok === false) {
+    throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
   }
 
   const descBytes = descriptor.toBytes();

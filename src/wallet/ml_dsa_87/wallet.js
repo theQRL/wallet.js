@@ -4,7 +4,7 @@
  */
 
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { CryptoPublicKeyBytes, CryptoSecretKeyBytes } from '@theqrl/mldsa87';
+import { CryptoPublicKeyBytes, CryptoSecretKeyBytes, validatePublicKey, validateSecretKey } from '@theqrl/mldsa87';
 import { randomBytes } from '../../utils/random.js';
 import { mnemonicToBin, binToMnemonic } from '../misc/mnemonic.js';
 import { getAddressFromPKAndDescriptor, addressToString } from '../common/address.js';
@@ -23,6 +23,20 @@ import { keygen, sign, signDeterministic, verify } from './crypto.js';
  * public shape.
  */
 const SECRET_FIELDS = ['seed', 'sk', 'extendedSeed', '_zeroized'];
+
+/**
+ * Failure reasons returned by {@link Wallet.verifyWithReason}. See that
+ * method's JSDoc for the meaning of each value.
+ *
+ * @typedef {'invalid-descriptor'
+ *   | 'invalid-signature-type'
+ *   | 'invalid-signature-length'
+ *   | 'invalid-message-type'
+ *   | 'invalid-pk-type'
+ *   | 'invalid-pk-length'
+ *   | 'weak-public-key'
+ *   | 'verification-failed'} VerifyFailureReason
+ */
 
 class Wallet {
   /**
@@ -60,11 +74,28 @@ class Wallet {
     if (pk.length !== CryptoPublicKeyBytes) {
       throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
     }
+    // Under a weak public key (too few large t1 coefficients) the verifier
+    // accepts a signature anyone can compute from the key alone, so no
+    // wallet may be built under one. Type and length were checked above,
+    // so the only verdict reachable here is 'weak-public-key'. See
+    // SECURITY.md "Public Key Validation".
+    const pkCheck = validatePublicKey(pk);
+    if (pkCheck.ok === false) {
+      throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
+    }
     if (!(sk instanceof Uint8Array)) {
       throw new Error('sk must be a Uint8Array');
     }
     if (sk.length !== CryptoSecretKeyBytes) {
       throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
+    }
+    // Type and length were checked above, so the only verdict reachable
+    // here is 'invalid-sk-encoding': an s1 or s2 field of 5, 6 or 7, which
+    // key generation never writes and which @theqrl/mldsa87 refuses to sign
+    // with. Reject it at construction rather than at the first sign().
+    const skCheck = validateSecretKey(sk);
+    if (skCheck.ok === false) {
+      throw new Error(`sk is not a valid ML-DSA-87 secret key (${skCheck.reason})`);
     }
     this.descriptor = descriptor;
     this.seed = seed;
@@ -285,7 +316,9 @@ class Wallet {
    *
    * **Total over malformed inputs**: wrong-typed or wrong-length
    * signature/message/pk and a non-Descriptor descriptor all return
-   * `false` — this boundary never throws. Use
+   * `false` — this boundary never throws. A weak public key
+   * (see {@link Wallet.verifyWithReason}) also returns
+   * `false`, whatever the signature. Use
    * {@link Wallet.verifyWithReason} when you need to distinguish *why*
    * verification failed.
    *
@@ -313,6 +346,10 @@ class Wallet {
    *  - `'invalid-message-type'` — `message` is not a `Uint8Array`
    *  - `'invalid-pk-type'` — `pk` is not a `Uint8Array`
    *  - `'invalid-pk-length'` — `pk` is the wrong byte length
+   *  - `'weak-public-key'` — `pk` is well-formed but has too few large t1
+   *    coefficients, so the verifier would accept a signature anyone can
+   *    compute from the key alone; rejected before the primitive runs
+   *    (see below)
    *  - `'verification-failed'` — well-formed inputs, signature does not verify
    *
    * The boolean {@link Wallet.verify} collapses all of these into `false`
@@ -322,11 +359,20 @@ class Wallet {
    * the signature is forged). Do not branch program logic on the reason
    * in security-sensitive paths.
    *
+   * The weak-key check is not part of FIPS 204. A key is weak unless at
+   * least 76 of its 2048 t1 coefficients lie in [96, 415] or [608, 927];
+   * under a weak key the verifier accepts a signature anyone can compute
+   * from the key alone, and the standard requires it to (Wycheproof tcId
+   * 66, 174 and 240), so `@theqrl/mldsa87` accepts it and this method
+   * rejects it first. go-qrllib, rust-qrllib and qrypto.js apply the same
+   * rule and share its test vectors. Key generation never produces a weak
+   * key. SECURITY.md "Public Key Validation" has the derivation.
+   *
    * @param {Uint8Array} signature
    * @param {Uint8Array} message
    * @param {Uint8Array} pk
    * @param {Descriptor} descriptor
-   * @returns {{ok: true} | {ok: false, reason: string}}
+   * @returns {{ok: true} | {ok: false, reason: VerifyFailureReason}}
    */
   static verifyWithReason(signature, message, pk, descriptor) {
     if (!(descriptor instanceof Descriptor)) {
@@ -340,6 +386,15 @@ class Wallet {
     }
     if (!(pk instanceof Uint8Array)) {
       return { ok: false, reason: 'invalid-pk-type' };
+    }
+    // The primitive accepts signatures under a weak key, so the rejection
+    // happens here, before it runs. Only the weak-key verdict is used:
+    // validatePublicKey also reports a wrong length, but that is left to
+    // the lower layer so the existing order of 'invalid-signature-length'
+    // and 'invalid-pk-length' is unchanged.
+    const pkCheck = validatePublicKey(pk);
+    if (pkCheck.ok === false && pkCheck.reason === 'weak-public-key') {
+      return { ok: false, reason: 'weak-public-key' };
     }
     // Length checks delegate to the lower layer, whose validation errors
     // carry stable machine-readable `code`s (see crypto.js `typedError`);

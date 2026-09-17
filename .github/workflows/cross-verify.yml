@@ -21,7 +21,7 @@ concurrency:
 # Bump deliberately: update the SHA + date, then run this workflow via
 # workflow_dispatch before merging.
 env:
-  GO_QRLLIB_PIN: 6f9978367906233874b406bd5d55b0e8b8d01d9c # v0.9.0 (2026-06-10)
+  GO_QRLLIB_PIN: 393467aa6883372b0861b5a3efe11354b5097632 # v0.10.0 (2026-09-17)
 
 jobs:
   mldsa87-cross-verify:

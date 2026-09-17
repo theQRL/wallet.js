@@ -288,9 +288,11 @@ the window in which a live `Wallet` exists.
 | `new Seed(bytes)` | Exactly 48 bytes |
 | `new ExtendedSeed(bytes)` | Exactly 51 bytes, valid wallet type |
 | `new Descriptor(bytes)` | Exactly 3 bytes, valid wallet type |
+| `new MLDSA87({ descriptor, seed, pk, sk })` | `Descriptor` / `Seed` instances; pk and sk are Uint8Array of correct lengths; pk is not a weak key; sk has a valid s1/s2 encoding (`validateSecretKey` in `@theqrl/mldsa87`) |
 | `wallet.sign(message)` | message is Uint8Array |
 | `wallet.signDeterministic(message)` | message is Uint8Array |
-| `MLDSA87.verify(sig, msg, pk, descriptor)` | All inputs are Uint8Array of correct lengths; descriptor is a `Descriptor` instance |
+| `MLDSA87.verify(sig, msg, pk, descriptor)` / `verifyWithReason` | All inputs are Uint8Array of correct lengths; descriptor is a `Descriptor` instance; pk is not a weak key; see [Public Key Validation](#public-key-validation) |
+| `getAddressFromPKAndDescriptor(pk, descriptor)` | pk is a Uint8Array of the length for the descriptor's wallet type and is not a weak key |
 | `stringToAddress(str)` | Starts with Q/q, 128 hex characters, and (if mixed-case) EIP-55 checksum valid |
 
 ### Error Handling
@@ -371,6 +373,69 @@ Bumping `SIGNING_CONTEXT_VERSION` is a hard break of the signature wire format a
 
 ---
 
+## Public Key Validation
+
+A packed ML-DSA-87 public key is `rho` (32 bytes) followed by the packed
+`t1` vector: 2,048 coefficients, each in `[0, 1023]`, 10 bits apiece with
+no slack bits. A key is weak when the verifier accepts a signature that
+anyone can compute from the public key alone (`z = 0`, up to 75 hints,
+`c~ = SHAKE256(mu || w1Encode(0))`). That is possible when the `t1`
+coefficients are small, near 0 or near 1023 (`2^13 · 1023 = q − 1`), and
+also when they sit near 512, because `2^13 · 512 ≡ 2^-1 · (2^13 − 1) mod q`
+and a 60-tap ±1 challenge times an all-odd polynomial is always even, so
+the `2^-1` cancels. A coefficient `v` is large when `96 <= v <= 415` or
+`608 <= v <= 927`: a large coefficient contributes more than `3 · GAMMA2`
+per challenge tap under both mechanisms, two `HighBits` bands from zero and
+beyond hint correction. A key is weak unless at least 76 of its 2,048
+coefficients are large; 76 is `OMEGA + 1`, more than the verifier can
+correct. Honest keys have about 1,280 large coefficients (the minimum over
+500 samples was 1,230), so key generation never produces a weak key and
+false rejection is below `2^-800`.
+
+### Why the primitive accepts it
+
+FIPS 204 Algorithm 8 has no key-validity step, and the Wycheproof vectors
+require a conformant verifier to accept `valid` signatures under the
+all-zero key (tcId 66 and 174) and under the all-1023 key (tcId 240).
+`@theqrl/mldsa87`'s `cryptoSignVerify` therefore keeps accepting weak keys
+(its Wycheproof suite pins that) and exports `validatePublicKey` for
+callers to apply themselves. This library applies it.
+
+### Where this library rejects it
+
+| Boundary | Behaviour for a weak key |
+|---|---|
+| `MLDSA87.verifyWithReason(sig, msg, pk, descriptor)` | `{ ok: false, reason: 'weak-public-key' }`, after the type checks and before the primitive runs. A wrong-length key is still `invalid-pk-length`, in the same order as before. |
+| `MLDSA87.verify(sig, msg, pk, descriptor)` | `false`. |
+| `new MLDSA87({ descriptor, seed, pk, sk })` | Throws `pk is a weak ML-DSA-87 public key (weak-public-key)`, after the existing type and length checks. The static factories derive `pk` from a seed and are unaffected. |
+| `getAddressFromPKAndDescriptor(pk, descriptor)` | Throws the same error. go-qrllib's `GetAddressFromPKAndDescriptor` parses the key through `BytesToPK`, which rejects it, so this keeps the two libraries in step. |
+
+`wallet/ml_dsa_87/crypto.js`'s `verify` is a module-internal wrapper over
+the primitive, not exported, and does not apply the check; the `Wallet`
+class does. Address derivation for a wallet's own key is unaffected because
+a wallet cannot be constructed under a weak key.
+
+### The shared rule and its vectors
+
+go-qrllib (`ml_dsa_87.ValidatePublicKey`, applied by `ParsePublicKey` and
+`BytesToPK`), rust-qrllib (`PublicKey::from_bytes`), qrypto.js
+(`validatePublicKey`) and this library apply the same rule, so a signature
+is valid or invalid on every QRL client alike. `rho` plays no part in it.
+The 28 vectors in `test/fixtures/weak_public_key_vectors.json` are a
+byte-identical copy of qrypto.js's
+`packages/mldsa87/test/vectors/weak_public_key_vectors.json`, which
+go-qrllib and rust-qrllib also consume; each records the key, its number of
+large coefficients, the expected verdict, and whether the zero-hint
+signature verifies at the primitive.
+`test/unit/verify-with-reason.mocha.js` runs every vector through
+`verifyWithReason`, the `MLDSA87` constructor and
+`getAddressFromPKAndDescriptor`, and, for the keys marked
+`zeroHintForgeryVerifies`, builds that signature under the wallet's real
+signing context and checks that the raw primitive accepts it while the
+wallet rejects it, so the check cannot pass vacuously.
+
+---
+
 ## Input-Parsing Supersets vs go-qrllib
 
 The address, mnemonic and hex-seed **parsers** accept a small, deliberate
@@ -439,7 +504,7 @@ The Montgomery reduction and other arithmetic operations in `@theqrl/mldsa87` us
 
 | Package | Purpose | Security Notes |
 |---------|---------|----------------|
-| `@theqrl/mldsa87` | ML-DSA-87 signatures | Audited; FIPS 204 compliant |
+| `@theqrl/mldsa87` | ML-DSA-87 signatures; `validatePublicKey` for the [weak-key](#public-key-validation) check | Audited; FIPS 204 compliant |
 | `@noble/hashes` | SHA-256, SHAKE-256 | Widely audited; constant-time |
 
 ### Bundled Dependencies in the CJS Artifact

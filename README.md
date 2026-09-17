@@ -116,7 +116,21 @@ const wallet = newWalletFromExtendedSeed('0x01000000...'); // 51-byte hex
 
 | Method | Description |
 |--------|-------------|
-| `MLDSA87.verify(signature, message, pk, descriptor)` | Verify a signature, returns `boolean`. The descriptor is required so verification uses the same domain-separated context as signing |
+| `MLDSA87.verify(signature, message, pk, descriptor)` | Verify a signature, returns `boolean`. The descriptor is required so verification uses the same domain-separated context as signing. Never throws: malformed inputs and a weak public key (below) return `false` |
+| `MLDSA87.verifyWithReason(signature, message, pk, descriptor)` | Same check, returning `{ ok: true }` or `{ ok: false, reason }` with a typed reason (`VerifyFailureReason` in TypeScript): `invalid-descriptor`, `invalid-signature-type`, `invalid-signature-length`, `invalid-message-type`, `invalid-pk-type`, `invalid-pk-length`, `weak-public-key`, `verification-failed`. For diagnostics and error reporting only; do not branch security logic on the reason |
+
+#### Public key validation (`weak-public-key`)
+
+A packed ML-DSA-87 public key is `rho` (32 bytes) then `t1` (2,560 bytes,
+2,048 coefficients). Under a key with too few large `t1` coefficients the
+verifier accepts a signature anyone can compute from the key alone, and
+FIPS 204 requires `@theqrl/mldsa87` to accept it. This library therefore
+checks keys wherever they come in: `verifyWithReason` returns
+`'weak-public-key'`, `verify` returns `false`, and the `MLDSA87`
+constructor and `getAddressFromPKAndDescriptor` throw. Key generation
+never produces a weak key. The rule and its test vectors are shared with
+go-qrllib, rust-qrllib and qrypto.js; the derivation is in
+[SECURITY.md](SECURITY.md#public-key-validation).
 
 ### Signing Context
 
@@ -218,6 +232,8 @@ See [SECURITY.md](SECURITY.md) for the security model and best practices.
 - Never log or transmit mnemonics/seeds
 - Mnemonics do not include a built-in checksum — application-layer verification is recommended (see [SECURITY.md](SECURITY.md) for details)
 - Validate addresses with `isValidAddress()` before use (accepts uniform-case and checksummed forms), or with `isValidChecksumAddress()` to require an EIP-55-style checksummed address
+- Public keys from untrusted sources are checked for weakness at every entry point (`verify`/`verifyWithReason`, the `MLDSA87` constructor, `getAddressFromPKAndDescriptor`); see [Public key validation](#public-key-validation-weak-public-key)
+- A secret key passed to the `MLDSA87` constructor must have a valid s1/s2 encoding (`validateSecretKey` in `@theqrl/mldsa87`, the same check its signing functions apply); key generation never produces an invalid one
 
 ## Browser Usage
 
@@ -244,7 +260,7 @@ This library currently supports **ML-DSA-87** (FIPS 204), the NIST standardized 
 
 ## Dependencies
 
-- `@theqrl/mldsa87` - ML-DSA-87 implementation
+- `@theqrl/mldsa87` - ML-DSA-87 implementation (also provides `validatePublicKey` and `validateSecretKey`, used for the key checks in the constructor)
 - `@noble/hashes` - SHA-256, SHAKE-256
 
 Note: the ESM build resolves these from `node_modules`; the CJS build

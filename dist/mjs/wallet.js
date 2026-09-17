@@ -1,5 +1,5 @@
 import { shake256 } from '@noble/hashes/sha3.js';
-import { CryptoPublicKeyBytes, cryptoSignKeypair, CryptoSecretKeyBytes, cryptoSign, CryptoBytes, cryptoSignVerify } from '@theqrl/mldsa87';
+import { validatePublicKey, CryptoPublicKeyBytes, cryptoSignKeypair, CryptoSecretKeyBytes, cryptoSign, CryptoBytes, cryptoSignVerify, validateSecretKey } from '@theqrl/mldsa87';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 
@@ -240,10 +240,17 @@ function isValidChecksumAddress(addrStr) {
 
 /**
  * Derive an address from a public key and descriptor.
+ *
+ * A weak ML-DSA-87 public key (too few large t1 coefficients) is rejected
+ * here too, as go-qrllib's `GetAddressFromPKAndDescriptor` does via
+ * `BytesToPK`. No key made by this library is affected; see SECURITY.md
+ * "Public Key Validation".
+ *
  * @param {Uint8Array} pk - Public key for the wallet type encoded in the descriptor.
  * @param {Descriptor} descriptor
  * @returns {Uint8Array} {@link ADDRESS_SIZE}-byte address.
- * @throws {Error} If pk is not a Uint8Array of the expected length.
+ * @throws {Error} If pk is not a Uint8Array of the expected length, or is
+ *   a weak key.
  */
 function getAddressFromPKAndDescriptor(pk, descriptor) {
   if (!(pk instanceof Uint8Array)) throw new Error('pk must be Uint8Array');
@@ -257,11 +264,21 @@ function getAddressFromPKAndDescriptor(pk, descriptor) {
   if (pk.length !== expectedPKLen) {
     throw new Error(`pk must be ${expectedPKLen} bytes for wallet type ${walletType}`);
   }
+  // Snapshot so the weak-key check and the hash see the same bytes; a
+  // caller's buffer can change between the two (a SharedArrayBuffer view
+  // written by another thread).
+  const pkBytes = Uint8Array.from(pk);
+  // Type and length were checked above, so the only verdict reachable here
+  // is 'weak-public-key'.
+  const pkCheck = validatePublicKey(pkBytes);
+  if (pkCheck.ok === false) {
+    throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
+  }
 
   const descBytes = descriptor.toBytes();
-  const input = new Uint8Array(descBytes.length + pk.length);
+  const input = new Uint8Array(descBytes.length + pkBytes.length);
   input.set(descBytes, 0);
-  input.set(pk, descBytes.length);
+  input.set(pkBytes, descBytes.length);
   return shake256.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
 }
 
@@ -5121,6 +5138,20 @@ function verify(signature, message, pk, ctx) {
  */
 const SECRET_FIELDS = ['seed', 'sk', 'extendedSeed', '_zeroized'];
 
+/**
+ * Failure reasons returned by {@link Wallet.verifyWithReason}. See that
+ * method's JSDoc for the meaning of each value.
+ *
+ * @typedef {'invalid-descriptor'
+ *   | 'invalid-signature-type'
+ *   | 'invalid-signature-length'
+ *   | 'invalid-message-type'
+ *   | 'invalid-pk-type'
+ *   | 'invalid-pk-length'
+ *   | 'weak-public-key'
+ *   | 'verification-failed'} VerifyFailureReason
+ */
+
 class Wallet {
   /**
    * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
@@ -5157,19 +5188,41 @@ class Wallet {
     if (pk.length !== CryptoPublicKeyBytes) {
       throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
     }
+    // Snapshot before validating, and keep the snapshot: the check and the
+    // key the wallet holds must see the same bytes, which a caller's buffer
+    // (or a SharedArrayBuffer view another thread can write) does not
+    // guarantee. The copy is also the normalisation to a plain Uint8Array
+    // the ownership contract above requires.
+    const pkBytes = Uint8Array.from(pk);
+    // Under a weak public key (too few large t1 coefficients) the verifier
+    // accepts a signature anyone can compute from the key alone, so no
+    // wallet may be built under one. Type and length were checked above,
+    // so the only verdict reachable here is 'weak-public-key'. See
+    // SECURITY.md "Public Key Validation".
+    const pkCheck = validatePublicKey(pkBytes);
+    if (pkCheck.ok === false) {
+      throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
+    }
     if (!(sk instanceof Uint8Array)) {
       throw new Error('sk must be a Uint8Array');
     }
     if (sk.length !== CryptoSecretKeyBytes) {
       throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
     }
+    const skBytes = Uint8Array.from(sk);
+    // Type and length were checked above, so the only verdict reachable
+    // here is 'invalid-sk-encoding': an s1 or s2 field of 5, 6 or 7, which
+    // key generation never writes and which @theqrl/mldsa87 refuses to sign
+    // with. Reject it at construction rather than at the first sign().
+    const skCheck = validateSecretKey(skBytes);
+    if (skCheck.ok === false) {
+      skBytes.fill(0);
+      throw new Error(`sk is not a valid ML-DSA-87 secret key (${skCheck.reason})`);
+    }
     this.descriptor = descriptor;
     this.seed = seed;
-    // Normalize to plain Uint8Array — never retain a caller's subclass
-    // instance. See the ownership contract above for why Buffer inputs
-    // would otherwise alias internal key state through the getters.
-    this.pk = Uint8Array.from(pk);
-    this.sk = Uint8Array.from(sk);
+    this.pk = pkBytes;
+    this.sk = skBytes;
     this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
     /** @private */
     this._zeroized = false;
@@ -5382,7 +5435,9 @@ class Wallet {
    *
    * **Total over malformed inputs**: wrong-typed or wrong-length
    * signature/message/pk and a non-Descriptor descriptor all return
-   * `false` — this boundary never throws. Use
+   * `false` — this boundary never throws. A weak public key
+   * (see {@link Wallet.verifyWithReason}) also returns
+   * `false`, whatever the signature. Use
    * {@link Wallet.verifyWithReason} when you need to distinguish *why*
    * verification failed.
    *
@@ -5410,6 +5465,10 @@ class Wallet {
    *  - `'invalid-message-type'` — `message` is not a `Uint8Array`
    *  - `'invalid-pk-type'` — `pk` is not a `Uint8Array`
    *  - `'invalid-pk-length'` — `pk` is the wrong byte length
+   *  - `'weak-public-key'` — `pk` is well-formed but has too few large t1
+   *    coefficients, so the verifier would accept a signature anyone can
+   *    compute from the key alone; rejected before the primitive runs
+   *    (see below)
    *  - `'verification-failed'` — well-formed inputs, signature does not verify
    *
    * The boolean {@link Wallet.verify} collapses all of these into `false`
@@ -5419,11 +5478,20 @@ class Wallet {
    * the signature is forged). Do not branch program logic on the reason
    * in security-sensitive paths.
    *
+   * The weak-key check is not part of FIPS 204. A key is weak unless at
+   * least 76 of its 2048 t1 coefficients lie in [96, 415] or [608, 927];
+   * under a weak key the verifier accepts a signature anyone can compute
+   * from the key alone, and the standard requires it to (Wycheproof tcId
+   * 66, 174 and 240), so `@theqrl/mldsa87` accepts it and this method
+   * rejects it first. go-qrllib, rust-qrllib and qrypto.js apply the same
+   * rule and share its test vectors. Key generation never produces a weak
+   * key. SECURITY.md "Public Key Validation" has the derivation.
+   *
    * @param {Uint8Array} signature
    * @param {Uint8Array} message
    * @param {Uint8Array} pk
    * @param {Descriptor} descriptor
-   * @returns {{ok: true} | {ok: false, reason: string}}
+   * @returns {{ok: true} | {ok: false, reason: VerifyFailureReason}}
    */
   static verifyWithReason(signature, message, pk, descriptor) {
     if (!(descriptor instanceof Descriptor)) {
@@ -5438,6 +5506,20 @@ class Wallet {
     if (!(pk instanceof Uint8Array)) {
       return { ok: false, reason: 'invalid-pk-type' };
     }
+    // Snapshot so the weak-key check and the verifier see the same bytes;
+    // a caller's buffer can change between the two (a SharedArrayBuffer
+    // view written by another thread), and the check must gate exactly the
+    // key that is verified against.
+    const pkBytes = Uint8Array.from(pk);
+    // The primitive accepts signatures under a weak key, so the rejection
+    // happens here, before it runs. Only the weak-key verdict is used:
+    // validatePublicKey also reports a wrong length, but that is left to
+    // the lower layer so the existing order of 'invalid-signature-length'
+    // and 'invalid-pk-length' is unchanged.
+    const pkCheck = validatePublicKey(pkBytes);
+    if (pkCheck.ok === false && pkCheck.reason === 'weak-public-key') {
+      return { ok: false, reason: 'weak-public-key' };
+    }
     // Length checks delegate to the lower layer, whose validation errors
     // carry stable machine-readable `code`s (see crypto.js `typedError`);
     // we classify by code, never by message text. The final `throw e` in
@@ -5450,7 +5532,7 @@ class Wallet {
     // covered by inspection rather than by a test that would have to
     // monkey-patch the lower layer.
     try {
-      const ok = verify(signature, message, pk, signingContext(descriptor));
+      const ok = verify(signature, message, pkBytes, signingContext(descriptor));
       return ok ? { ok: true } : { ok: false, reason: 'verification-failed' };
     } catch (e) {
       const { code } = /** @type {Error & {code?: string}} */ (e);

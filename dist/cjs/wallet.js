@@ -2088,6 +2088,17 @@ function cryptoSignKeypair(passedSeed, pk, sk) {
   }
 }
 
+// Bound on the FIPS 204 Algorithm 7 rejection loop. Each attempt is accepted
+// with probability about 0.26 (3.85 expected attempts, FIPS 204 Table 2), and
+// that probability does not depend on the key as long as s1 and s2 are in
+// range, which secretKeyVecsInRange guarantees. The chance that a valid key
+// needs more than 1024 attempts is below 0.74^1024 < 2^-440, so the bound
+// is not expected to fire in honest use. It exists so that a secret key whose other
+// fields are adversarial (a t0 chosen so that most attempts need more than
+// OMEGA hints) throws instead of spinning. go-qrllib and rust-qrllib use
+// the same bound.
+const SIGN_MAX_ATTEMPTS = 1024;
+
 /**
  * Create a detached signature for a message with context.
  *
@@ -2128,6 +2139,8 @@ function cryptoSignKeypair(passedSeed, pk, sk) {
  * @throws {TypeError} If randomizedSigning is not a boolean
  * @throws {Error} If ctx exceeds 255 bytes
  * @throws {Error} If sk length does not equal CryptoSecretKeyBytes
+ * @throws {Error} If an s1 or s2 coefficient of sk is outside [-ETA, ETA] (see [validateSecretKey])
+ * @throws {Error} If no signature is accepted within 1024 attempts (a below-2^-440 event for a key from [cryptoSignKeypair])
  * @throws {Error} If message is not a Uint8Array or valid hex string
  *
  * @example
@@ -2173,6 +2186,9 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
 
   try {
     unpackSk(rho, tr, key, t0, s1, s2, sk);
+    if (!secretKeyVecsInRange(s1, s2)) {
+      throw new Error('invalid sk: an s1 or s2 coefficient is outside [-ETA, ETA] (invalid-sk-encoding)');
+    }
 
     // pre = 0x00 || len(ctx) || ctx
     const pre = new Uint8Array(2 + ctx.length);
@@ -2195,7 +2211,7 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
     polyVecKNTT(s2);
     polyVecKNTT(t0);
 
-    while (true) {
+    for (let attempt = 0; attempt < SIGN_MAX_ATTEMPTS; ++attempt) {
       polyVecLUniformGamma1(y, rhoPrime, nonce++);
       // Matrix-vector multiplication
       z.copy(y);
@@ -2239,9 +2255,10 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
       polyVecKPointWisePolyMontgomery(h, cp, t0);
       polyVecKInvNTTToMont(h);
       polyVecKReduce(h);
-      // Statistically rare rejection (depends on key/challenge interaction);
-      // no deterministic trigger is known, so it is exercised by long fuzz
-      // campaigns rather than unit vectors.
+      // Unreachable for any decodable t0: each coefficient of c*t0 is a sum
+      // of TAU terms of magnitude at most 2^(D-1), so its norm is at most
+      // TAU*2^(D-1) = 245760 < GAMMA2 = 261888. Kept as written in FIPS 204
+      // Algorithm 7.
       /* c8 ignore start */
       if (polyVecKChkNorm(h, GAMMA2) !== 0) {
         continue;
@@ -2250,16 +2267,22 @@ function cryptoSignSignature(sig, m, sk, randomizedSigning, ctx) {
 
       polyVecKAdd(w0, w0, h);
       const n = polyVecKMakeHint(h, w0, w1);
-      // Statistically rare rejection — same rationale as the ct0 check above.
-      /* c8 ignore start */
       if (n > OMEGA) {
         continue;
       }
-      /* c8 ignore stop */
 
       packSig(sig, ctilde, z, h);
       return 0;
     }
+    /* c8 ignore start */
+    // Every attempt was rejected. Not reachable by test: for a generated key
+    // this is a below-2^-440 event, and the one field a caller can shape,
+    // t0, only raises the hint count to about 100 per attempt against
+    // OMEGA = 75, so even then about 1 attempt in 100 is accepted and 1024
+    // attempts fail with probability below 2^-10. The bound keeps signing
+    // time finite for such a key instead of open-ended.
+    throw new Error(`signing failed: no signature accepted within ${SIGN_MAX_ATTEMPTS} attempts`);
+    /* c8 ignore stop */
   } finally {
     zeroize(key);
     zeroize(rhoPrime);
@@ -2411,6 +2434,163 @@ function cryptoSignVerify(sig, m, pk, ctx) {
     diff |= c[i] ^ c2[i];
   }
   return diff === 0;
+}
+
+// Public-key validation bounds, derived from the parameter set.
+//
+// A t1 coefficient v (10 bits, 0..1023) is "large" when each challenge tap
+// moves c*2^D*t1 by more than 3*GAMMA2 under both readings available to an
+// attacker: as 2^D*v centered modulo Q, which is small for v near 0 and for
+// v near 1023 (2^D*1023 = Q - 1); and as (2^(D+1)*v centered modulo Q)/2,
+// which is small for v near 512 because 2^(D+1)*512 = 2^D - 1 (mod Q) and
+// c*(1 + x + ... + x^255) always has even coefficients (60 taps of +-1 sum
+// to an even number), so the halving is real. 3*GAMMA2 is two HighBits bands
+// from zero, beyond what a hint corrects, and the verifier accepts at most
+// OMEGA hints, so OMEGA + 1 large coefficients is more than it can repair.
+// go-qrllib, rust-qrllib and wallet.js apply the same rule and are tested
+// against the same vector file (test/vectors/weak_public_key_vectors.json).
+const T1_LARGE_LOW = Math.floor((3 * GAMMA2) / (1 << D)) + 1; // 96
+const T1_LARGE_HIGH_BELOW_HALF = Math.floor((Q - 6 * GAMMA2) / (1 << (D + 1))); // 415
+const T1_LARGE_LOW_ABOVE_HALF = Math.ceil((Q + 6 * GAMMA2) / (1 << (D + 1))); // 608
+const T1_LARGE_HIGH = Math.ceil((Q - 3 * GAMMA2) / (1 << D)) - 1; // 927
+const T1_MIN_LARGE = OMEGA + 1; // 76
+
+/**
+ * Check a packed ML-DSA-87 public key before verifying with it.
+ *
+ * A weak key is one under which the verifier accepts a signature anyone can
+ * compute from the key alone. Key generation never produces one, and FIPS
+ * 204 requires [cryptoSignVerify] and [cryptoSignOpen] to accept it, so the
+ * check is separate; call it on keys you receive. The rule (at least 76 of
+ * the 2048 t1 coefficients in [96, 415] or [608, 927]) and its derivation
+ * are in the package README under "Public Key Validation".
+ *
+ * Never throws. Type and length problems come back as reasons, and the
+ * coefficient scan reads every coefficient regardless of content.
+ *
+ * @param {unknown} pk - Packed public key candidate (rho || t1)
+ * @returns {{ok: true} | {ok: false, reason: 'invalid-pk-type'|'invalid-pk-length'|'weak-public-key'}}
+ *
+ * @example
+ * const check = validatePublicKey(pk);
+ * if (!check.ok) {
+ *   throw new Error(`rejected public key: ${check.reason}`);
+ * }
+ * const isValid = cryptoSignVerify(signature, message, pk, ctx);
+ */
+function validatePublicKey(pk) {
+  if (!(pk instanceof Uint8Array)) {
+    return { ok: false, reason: 'invalid-pk-type' };
+  }
+  if (pk.length !== CryptoPublicKeyBytes) {
+    return { ok: false, reason: 'invalid-pk-length' };
+  }
+  // Only t1 (pk[SeedBytes..]) matters; rho is a matrix seed and any value is
+  // fine. Count the large coefficients with a branch-free accumulator: every
+  // coefficient is unpacked and tested against both bands, no early exit.
+  const t1 = new Poly();
+  let large = 0;
+  for (let i = 0; i < K; ++i) {
+    polyT1Unpack(t1, pk, SeedBytes + i * PolyT1PackedBytes);
+    for (let j = 0; j < N; ++j) {
+      const v = t1.coeffs[j];
+      // (a - b) >>> 31 is 1 exactly when a < b (all operands fit in 31 bits).
+      const below = ((T1_LARGE_LOW - 1 - v) >>> 31) & ((v - T1_LARGE_HIGH_BELOW_HALF - 1) >>> 31);
+      const above = ((T1_LARGE_LOW_ABOVE_HALF - 1 - v) >>> 31) & ((v - T1_LARGE_HIGH - 1) >>> 31);
+      large += below | above;
+    }
+  }
+  if (large < T1_MIN_LARGE) {
+    return { ok: false, reason: 'weak-public-key' };
+  }
+  return { ok: true };
+}
+
+// s1 and s2 travel in the packed secret key (rho || K || tr || s1 || s2 || t0)
+// as 3-bit fields holding ETA - v, so 0..2*ETA are the only encodings key
+// generation writes; 5, 6 and 7 decode to -3, -4 and -5. t0 has no invalid
+// encoding (every 13-bit field decodes into the Power2Round range) and rho,
+// K and tr are opaque bytes, so this is the whole of what can be checked
+// without recomputing the public key. An out-of-range s1 or s2 breaks the
+// ||z|| < GAMMA1 - BETA bound the rejection loop relies on, and with it the
+// zero-knowledge property of the signature. go-qrllib and rust-qrllib apply
+// the same check.
+const SECRET_KEY_VECS_OFFSET = 2 * SeedBytes + TRBytes;
+
+/**
+ * Report whether every coefficient of s1 and s2 lies in [-ETA, ETA].
+ * Branch-free: (v + ETA) | (ETA - v) is negative exactly when v is out of
+ * range, and the sign bits are OR-ed so the scan never stops early.
+ *
+ * @param {PolyVecL} s1
+ * @param {PolyVecK} s2
+ * @returns {boolean}
+ */
+function secretKeyVecsInRange(s1, s2) {
+  let bad = 0;
+  for (let i = 0; i < L; ++i) {
+    const { coeffs } = s1.vec[i];
+    for (let j = 0; j < N; ++j) {
+      const v = coeffs[j];
+      bad |= (v + ETA) | (ETA - v);
+    }
+  }
+  for (let i = 0; i < K; ++i) {
+    const { coeffs } = s2.vec[i];
+    for (let j = 0; j < N; ++j) {
+      const v = coeffs[j];
+      bad |= (v + ETA) | (ETA - v);
+    }
+  }
+  return bad >= 0;
+}
+
+/**
+ * Check a packed ML-DSA-87 secret key before signing with it.
+ *
+ * The check is the one every signing function applies: every coefficient of
+ * s1 and s2 must lie in [-ETA, ETA]. Keys from [cryptoSignKeypair] always
+ * pass; the 3-bit encodings 5, 6 and 7 never come from key generation and
+ * make signing throw. rho, K, tr and t0 are not examined, as they have no
+ * invalid encoding. See the package README under "Secret Key Validation".
+ *
+ * Never throws. Type and length problems come back as reasons, the scan
+ * reads every coefficient regardless of content, and the unpacked
+ * coefficients are zeroed before returning.
+ *
+ * @param {unknown} sk - Packed secret key candidate
+ * @returns {{ok: true} | {ok: false, reason: 'invalid-sk-type'|'invalid-sk-length'|'invalid-sk-encoding'}}
+ *
+ * @example
+ * const check = validateSecretKey(sk);
+ * if (!check.ok) {
+ *   throw new Error(`rejected secret key: ${check.reason}`);
+ * }
+ */
+function validateSecretKey(sk) {
+  if (!(sk instanceof Uint8Array)) {
+    return { ok: false, reason: 'invalid-sk-type' };
+  }
+  if (sk.length !== CryptoSecretKeyBytes) {
+    return { ok: false, reason: 'invalid-sk-length' };
+  }
+  const s1 = new PolyVecL();
+  const s2 = new PolyVecK();
+  try {
+    for (let i = 0; i < L; ++i) {
+      polyEtaUnpack(s1.vec[i], sk, SECRET_KEY_VECS_OFFSET + i * PolyETAPackedBytes);
+    }
+    for (let i = 0; i < K; ++i) {
+      polyEtaUnpack(s2.vec[i], sk, SECRET_KEY_VECS_OFFSET + (L + i) * PolyETAPackedBytes);
+    }
+    if (!secretKeyVecsInRange(s1, s2)) {
+      return { ok: false, reason: 'invalid-sk-encoding' };
+    }
+    return { ok: true };
+  } finally {
+    zeroizePolyVec(s1);
+    zeroizePolyVec(s2);
+  }
 }
 
 /**
@@ -2627,10 +2807,17 @@ function isValidChecksumAddress(addrStr) {
 
 /**
  * Derive an address from a public key and descriptor.
+ *
+ * A weak ML-DSA-87 public key (too few large t1 coefficients) is rejected
+ * here too, as go-qrllib's `GetAddressFromPKAndDescriptor` does via
+ * `BytesToPK`. No key made by this library is affected; see SECURITY.md
+ * "Public Key Validation".
+ *
  * @param {Uint8Array} pk - Public key for the wallet type encoded in the descriptor.
  * @param {Descriptor} descriptor
  * @returns {Uint8Array} {@link ADDRESS_SIZE}-byte address.
- * @throws {Error} If pk is not a Uint8Array of the expected length.
+ * @throws {Error} If pk is not a Uint8Array of the expected length, or is
+ *   a weak key.
  */
 function getAddressFromPKAndDescriptor(pk, descriptor) {
   if (!(pk instanceof Uint8Array)) throw new Error('pk must be Uint8Array');
@@ -2644,11 +2831,21 @@ function getAddressFromPKAndDescriptor(pk, descriptor) {
   if (pk.length !== expectedPKLen) {
     throw new Error(`pk must be ${expectedPKLen} bytes for wallet type ${walletType}`);
   }
+  // Snapshot so the weak-key check and the hash see the same bytes; a
+  // caller's buffer can change between the two (a SharedArrayBuffer view
+  // written by another thread).
+  const pkBytes = Uint8Array.from(pk);
+  // Type and length were checked above, so the only verdict reachable here
+  // is 'weak-public-key'.
+  const pkCheck = validatePublicKey(pkBytes);
+  if (pkCheck.ok === false) {
+    throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
+  }
 
   const descBytes = descriptor.toBytes();
-  const input = new Uint8Array(descBytes.length + pk.length);
+  const input = new Uint8Array(descBytes.length + pkBytes.length);
   input.set(descBytes, 0);
-  input.set(pk, descBytes.length);
+  input.set(pkBytes, descBytes.length);
   return shake256.create({ dkLen: ADDRESS_SIZE }).update(input).digest();
 }
 
@@ -7837,6 +8034,20 @@ function verify(signature, message, pk, ctx) {
  */
 const SECRET_FIELDS = ['seed', 'sk', 'extendedSeed', '_zeroized'];
 
+/**
+ * Failure reasons returned by {@link Wallet.verifyWithReason}. See that
+ * method's JSDoc for the meaning of each value.
+ *
+ * @typedef {'invalid-descriptor'
+ *   | 'invalid-signature-type'
+ *   | 'invalid-signature-length'
+ *   | 'invalid-message-type'
+ *   | 'invalid-pk-type'
+ *   | 'invalid-pk-length'
+ *   | 'weak-public-key'
+ *   | 'verification-failed'} VerifyFailureReason
+ */
+
 class Wallet {
   /**
    * @param {{descriptor: Descriptor, seed: Seed, pk: Uint8Array, sk: Uint8Array}} opts
@@ -7873,19 +8084,41 @@ class Wallet {
     if (pk.length !== CryptoPublicKeyBytes) {
       throw new Error(`pk must be ${CryptoPublicKeyBytes} bytes, got ${pk.length}`);
     }
+    // Snapshot before validating, and keep the snapshot: the check and the
+    // key the wallet holds must see the same bytes, which a caller's buffer
+    // (or a SharedArrayBuffer view another thread can write) does not
+    // guarantee. The copy is also the normalisation to a plain Uint8Array
+    // the ownership contract above requires.
+    const pkBytes = Uint8Array.from(pk);
+    // Under a weak public key (too few large t1 coefficients) the verifier
+    // accepts a signature anyone can compute from the key alone, so no
+    // wallet may be built under one. Type and length were checked above,
+    // so the only verdict reachable here is 'weak-public-key'. See
+    // SECURITY.md "Public Key Validation".
+    const pkCheck = validatePublicKey(pkBytes);
+    if (pkCheck.ok === false) {
+      throw new Error(`pk is a weak ML-DSA-87 public key (${pkCheck.reason})`);
+    }
     if (!(sk instanceof Uint8Array)) {
       throw new Error('sk must be a Uint8Array');
     }
     if (sk.length !== CryptoSecretKeyBytes) {
       throw new Error(`sk must be ${CryptoSecretKeyBytes} bytes, got ${sk.length}`);
     }
+    const skBytes = Uint8Array.from(sk);
+    // Type and length were checked above, so the only verdict reachable
+    // here is 'invalid-sk-encoding': an s1 or s2 field of 5, 6 or 7, which
+    // key generation never writes and which @theqrl/mldsa87 refuses to sign
+    // with. Reject it at construction rather than at the first sign().
+    const skCheck = validateSecretKey(skBytes);
+    if (skCheck.ok === false) {
+      skBytes.fill(0);
+      throw new Error(`sk is not a valid ML-DSA-87 secret key (${skCheck.reason})`);
+    }
     this.descriptor = descriptor;
     this.seed = seed;
-    // Normalize to plain Uint8Array — never retain a caller's subclass
-    // instance. See the ownership contract above for why Buffer inputs
-    // would otherwise alias internal key state through the getters.
-    this.pk = Uint8Array.from(pk);
-    this.sk = Uint8Array.from(sk);
+    this.pk = pkBytes;
+    this.sk = skBytes;
     this.extendedSeed = ExtendedSeed.newExtendedSeed(descriptor, seed);
     /** @private */
     this._zeroized = false;
@@ -8098,7 +8331,9 @@ class Wallet {
    *
    * **Total over malformed inputs**: wrong-typed or wrong-length
    * signature/message/pk and a non-Descriptor descriptor all return
-   * `false` — this boundary never throws. Use
+   * `false` — this boundary never throws. A weak public key
+   * (see {@link Wallet.verifyWithReason}) also returns
+   * `false`, whatever the signature. Use
    * {@link Wallet.verifyWithReason} when you need to distinguish *why*
    * verification failed.
    *
@@ -8126,6 +8361,10 @@ class Wallet {
    *  - `'invalid-message-type'` — `message` is not a `Uint8Array`
    *  - `'invalid-pk-type'` — `pk` is not a `Uint8Array`
    *  - `'invalid-pk-length'` — `pk` is the wrong byte length
+   *  - `'weak-public-key'` — `pk` is well-formed but has too few large t1
+   *    coefficients, so the verifier would accept a signature anyone can
+   *    compute from the key alone; rejected before the primitive runs
+   *    (see below)
    *  - `'verification-failed'` — well-formed inputs, signature does not verify
    *
    * The boolean {@link Wallet.verify} collapses all of these into `false`
@@ -8135,11 +8374,20 @@ class Wallet {
    * the signature is forged). Do not branch program logic on the reason
    * in security-sensitive paths.
    *
+   * The weak-key check is not part of FIPS 204. A key is weak unless at
+   * least 76 of its 2048 t1 coefficients lie in [96, 415] or [608, 927];
+   * under a weak key the verifier accepts a signature anyone can compute
+   * from the key alone, and the standard requires it to (Wycheproof tcId
+   * 66, 174 and 240), so `@theqrl/mldsa87` accepts it and this method
+   * rejects it first. go-qrllib, rust-qrllib and qrypto.js apply the same
+   * rule and share its test vectors. Key generation never produces a weak
+   * key. SECURITY.md "Public Key Validation" has the derivation.
+   *
    * @param {Uint8Array} signature
    * @param {Uint8Array} message
    * @param {Uint8Array} pk
    * @param {Descriptor} descriptor
-   * @returns {{ok: true} | {ok: false, reason: string}}
+   * @returns {{ok: true} | {ok: false, reason: VerifyFailureReason}}
    */
   static verifyWithReason(signature, message, pk, descriptor) {
     if (!(descriptor instanceof Descriptor)) {
@@ -8154,6 +8402,20 @@ class Wallet {
     if (!(pk instanceof Uint8Array)) {
       return { ok: false, reason: 'invalid-pk-type' };
     }
+    // Snapshot so the weak-key check and the verifier see the same bytes;
+    // a caller's buffer can change between the two (a SharedArrayBuffer
+    // view written by another thread), and the check must gate exactly the
+    // key that is verified against.
+    const pkBytes = Uint8Array.from(pk);
+    // The primitive accepts signatures under a weak key, so the rejection
+    // happens here, before it runs. Only the weak-key verdict is used:
+    // validatePublicKey also reports a wrong length, but that is left to
+    // the lower layer so the existing order of 'invalid-signature-length'
+    // and 'invalid-pk-length' is unchanged.
+    const pkCheck = validatePublicKey(pkBytes);
+    if (pkCheck.ok === false && pkCheck.reason === 'weak-public-key') {
+      return { ok: false, reason: 'weak-public-key' };
+    }
     // Length checks delegate to the lower layer, whose validation errors
     // carry stable machine-readable `code`s (see crypto.js `typedError`);
     // we classify by code, never by message text. The final `throw e` in
@@ -8166,7 +8428,7 @@ class Wallet {
     // covered by inspection rather than by a test that would have to
     // monkey-patch the lower layer.
     try {
-      const ok = verify(signature, message, pk, signingContext(descriptor));
+      const ok = verify(signature, message, pkBytes, signingContext(descriptor));
       return ok ? { ok: true } : { ok: false, reason: 'verification-failed' };
     } catch (e) {
       const { code } = /** @type {Error & {code?: string}} */ (e);

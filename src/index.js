@@ -25,6 +25,12 @@ import { newWalletFromExtendedSeed } from './wallet/factory.js';
 import { Wallet as MLDSA87 } from './wallet/ml_dsa_87/wallet.js';
 import { WalletType } from './wallet/common/wallettype.js';
 
+/**
+ * Failure reasons of {@link MLDSA87.verifyWithReason}, re-exported as a
+ * type so TypeScript consumers can name it.
+ * @typedef {import('./wallet/ml_dsa_87/wallet.js').VerifyFailureReason} VerifyFailureReason
+ */
+
 export {
   Seed,
   SEED_SIZE,

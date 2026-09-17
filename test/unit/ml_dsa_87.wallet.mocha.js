@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { bytesToHex, utf8ToBytes, hexToBytes } from '@noble/hashes/utils.js';
-import { CryptoPublicKeyBytes, CryptoSecretKeyBytes } from '@theqrl/mldsa87';
+import { CryptoPublicKeyBytes, CryptoSecretKeyBytes, SeedBytes, TRBytes } from '@theqrl/mldsa87';
 import { walletTestCases } from '../fixtures/ml_dsa_87.fixtures.js';
 import { ExtendedSeed } from '../../src/wallet/common/seed.js';
 import { Wallet as MLDSA87 } from '../../src/wallet/ml_dsa_87/wallet.js';
@@ -69,8 +69,34 @@ describe('Wallet constructor input validation', () => {
     );
   });
 
+  it('rejects a weak pk (all-zero t1): wallet-layer check, go-qrllib BytesToPK parity', () => {
+    const allZero = new Uint8Array(CryptoPublicKeyBytes);
+    expect(() => new MLDSA87({ ...parts, pk: allZero })).to.throw(
+      'pk is a weak ML-DSA-87 public key (weak-public-key)'
+    );
+    const rhoOnly = new Uint8Array(CryptoPublicKeyBytes).fill(0xab, 0, SeedBytes);
+    expect(() => new MLDSA87({ ...parts, pk: rhoOnly })).to.throw(
+      'pk is a weak ML-DSA-87 public key (weak-public-key)'
+    );
+  });
+
+  it('control: an honest pk still constructs, signs and verifies', () => {
+    const w = new MLDSA87(parts);
+    const msg = utf8ToBytes('weak-key-control');
+    const sig = w.sign(msg);
+    expect(MLDSA87.verifyWithReason(sig, msg, w.getPK(), w.getDescriptor())).to.deep.equal({ ok: true });
+  });
+
   it('rejects an sk that is not a Uint8Array', () => {
     expect(() => new MLDSA87({ ...parts, sk: Array.from(parts.sk) })).to.throw('sk must be a Uint8Array');
+  });
+
+  it('rejects an sk whose s1/s2 encoding is out of range: wallet-layer check, go-qrllib ValidateSecretKey parity', () => {
+    const invalid = Uint8Array.from(parts.sk);
+    invalid[2 * SeedBytes + TRBytes] |= 7; // first s1 coefficient: field 7 decodes to -5
+    expect(() => new MLDSA87({ ...parts, sk: invalid })).to.throw(
+      'sk is not a valid ML-DSA-87 secret key (invalid-sk-encoding)'
+    );
   });
 
   it('rejects an sk of the wrong length', () => {

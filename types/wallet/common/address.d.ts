@@ -70,10 +70,17 @@ export function toChecksumAddress(addr: Uint8Array | string): string;
 export function isValidChecksumAddress(addrStr: string): boolean;
 /**
  * Derive an address from a public key and descriptor.
+ *
+ * A weak ML-DSA-87 public key (too few large t1 coefficients) is rejected
+ * here too, as go-qrllib's `GetAddressFromPKAndDescriptor` does via
+ * `BytesToPK`. No key made by this library is affected; see SECURITY.md
+ * "Public Key Validation".
+ *
  * @param {Uint8Array} pk - Public key for the wallet type encoded in the descriptor.
  * @param {Descriptor} descriptor
  * @returns {Uint8Array} {@link ADDRESS_SIZE}-byte address.
- * @throws {Error} If pk is not a Uint8Array of the expected length.
+ * @throws {Error} If pk is not a Uint8Array of the expected length, or is
+ *   a weak key.
  */
 export function getAddressFromPKAndDescriptor(pk: Uint8Array, descriptor: Descriptor): Uint8Array;
 //# sourceMappingURL=address.d.ts.map

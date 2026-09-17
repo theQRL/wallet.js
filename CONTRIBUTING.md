@@ -70,7 +70,7 @@ Consequences for test authors:
 | `cross-implementation` | go-qrllib-matched fixtures (KATs) |
 | `seed-ownership` | Wallet/caller lifecycle isolation |
 | `secret-enumeration` | Secrets stay out of JSON/inspect/enumeration |
-| `verify-with-reason` | Discriminated verification failures + error-code contract |
+| `verify-with-reason` | Discriminated verification failures + error-code contract + the shared weak-key vectors (`test/fixtures/weak_public_key_vectors.json`, byte-identical to qrypto.js's; primitive accepts the zero-hint signature, wallet rejects the key) |
 | `public-api` | Locks the export surface of `src/index.js` |
 | `dist-bundle`, `types-build`, `types-consumer` | Built-artifact and declaration regression tests |
 
@@ -82,7 +82,7 @@ resolver. The full list, with bump semantics:
 
 | Pin | Where | Bump semantics |
 |---|---|---|
-| go-qrllib `6f99783…` (= v0.9.0) | `cross-verify.yml` env `GO_QRLLIB_PIN` | Routine: update SHA + dated comment, run the workflow via `workflow_dispatch` on the branch, merge. Never bump past a failure silently. |
+| go-qrllib `393467a…` (= v0.10.0) | `cross-verify.yml` env `GO_QRLLIB_PIN` | Routine: update SHA + dated comment, run the workflow via `workflow_dispatch` on the branch, merge. Never bump past a failure silently. |
 | Go module context of the cross-verify harness | structural | The harness Go programs run from *inside* the pinned go-qrllib clone, so `go run` resolves through the clone's own `go.mod`/`go.sum` at the pinned commit. There is deliberately **no `go.mod` under `.github/cross-verify/`** — a harness-local module file would resolve go-qrllib from the registry and silently shadow the clone pin. Adding one is a reviewed change to this table. |
 | `npm@11.16.0` | `release.yml` "Use npm 11" step; `package.json` `overrides` + lockfile | Exact-pinned in the publish-privileged job (a `^range` would resolve at run time). Bump the workflow and the override together. |
 | actionlint `1.7.10` | `actionlint.yml` `version:` input | The engine inside the SHA-pinned action (defaults to `latest` otherwise). Keep in step with the brew-installed version used locally. |

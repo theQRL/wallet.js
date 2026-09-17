@@ -1,3 +1,8 @@
+/**
+ * Failure reasons of {@link MLDSA87.verifyWithReason}, re-exported as a
+ * type so TypeScript consumers can name it.
+ */
+export type VerifyFailureReason = import("./wallet/ml_dsa_87/wallet.js").VerifyFailureReason;
 import { Seed } from './wallet/common/seed.js';
 import { SEED_SIZE } from './wallet/common/constants.js';
 import { ExtendedSeed } from './wallet/common/seed.js';

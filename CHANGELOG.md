@@ -1,3 +1,13 @@
+## [6.3.0](https://github.com/theQRL/wallet.js/compare/v6.2.7...v6.3.0) (2026-09-17)
+
+### Features
+
+* reject weak ML-DSA-87 public keys and invalid secret keys at every entry point ([970272e](https://github.com/theQRL/wallet.js/commit/970272e2023603a63e8e4bc11cdaf628c331d9d0))
+
+### Bug Fixes
+
+* validate-then-copy TOCTOU & cross-verify pin in docs ([5f531eb](https://github.com/theQRL/wallet.js/commit/5f531ebe8432f106d64d992234f756729b006fc9))
+
 ## [6.2.7](https://github.com/theQRL/wallet.js/compare/v6.2.6...v6.2.7) (2026-09-06)
 
 ### Dependencies

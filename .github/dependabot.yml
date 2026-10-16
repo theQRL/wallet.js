@@ -11,6 +11,15 @@ updates:
       dev-dependencies:
         patterns:
           - "*"
+    ignore:
+      # conventional-changelog-conventionalcommits@10 renders through
+      # conventional-changelog-writer@9, but the latest stable
+      # semantic-release@25 (release-notes-generator@14) bundles writer@8, so
+      # notes generation throws and the release job aborts. CI never runs the
+      # release path on a PR, so the bump looks green. Drop this once a stable
+      # semantic-release ships writer@9 support.
+      - dependency-name: "conventional-changelog-conventionalcommits"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
 

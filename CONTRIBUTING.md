@@ -40,8 +40,8 @@ directly at the new untested branch, which is why unreachable paths are
 excluded with rationale instead of letting the number sit below the
 ceiling. This repo is past the 100% milestone and the gate is locked in:
 **lowering it is a maintainer decision**, made as an explicit, reviewed
-change to the c8/Codecov thresholds with its reasoning in the PR — never
-a status check everyone learns to ignore.
+change to the c8/Codecov thresholds (`.c8rc.json` / `.codecov.yml`) with
+its reasoning in the PR.
 
 ### The browser suite uses hand-rolled shims
 

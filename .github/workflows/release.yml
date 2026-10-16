@@ -291,7 +291,7 @@ jobs:
       # signed SBOM of "whatever main was at publish time" can mis-describe
       # the released bytes — weakening exactly the story it exists to tell.
       - name: Download published tarball
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: npm-tarball
           path: tarball
@@ -381,7 +381,7 @@ jobs:
       # `npm pack`) could hash different bytes than npm serves — the
       # provenance must describe the released artifact, not a reproduction.
       - name: Download published tarball
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: npm-tarball
           path: tarball
@@ -421,12 +421,12 @@ jobs:
       contents: write # attach SLSA provenance asset to the GitHub Release
     steps:
       - name: Download provenance
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: provenance.intoto.jsonl
 
       - name: Download npm tarball
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: npm-tarball
           path: tarball

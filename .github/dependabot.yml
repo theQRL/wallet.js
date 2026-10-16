@@ -20,6 +20,13 @@ updates:
       # semantic-release ships writer@9 support.
       - dependency-name: "conventional-changelog-conventionalcommits"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 (typescript-go) changes the JSDoc -> d.ts emit behind
+      # types/: `@enum` no longer produces a type, and `@private` on
+      # constructor `this.x =` assignments loses the `private` modifier, so the
+      # published declarations change shape. Drop this once the JSDoc is
+      # reworked to emit the same declarations under TS 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
 

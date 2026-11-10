@@ -1,5 +1,5 @@
 import { shake256 } from '@noble/hashes/sha3.js';
-import { validatePublicKey, CryptoPublicKeyBytes, cryptoSignKeypair, CryptoSecretKeyBytes, cryptoSign, CryptoBytes, cryptoSignVerify, validateSecretKey } from '@theqrl/mldsa87';
+import { validatePublicKey, CryptoPublicKeyBytes, CryptoSecretKeyBytes, cryptoSignKeypair, cryptoSign, CryptoBytes, cryptoSignVerify, validateSecretKey } from '@theqrl/mldsa87';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 
